@@ -90,6 +90,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
 .task span{flex:1 1 auto}
 .task small{font-size:10px;color:var(--dim)}
 .trow{display:flex;gap:4px;align-items:center}.trow .task{flex:1 1 auto;min-width:0}.del{flex:0 0 36px;min-height:36px;padding:0;font-size:14px}.tform{display:flex;gap:6px;margin-top:4px}.tform .field{height:36px;font-size:13px}.tform .btn{min-height:36px;padding:0 14px}.evl{display:flex;flex-direction:column}.evl .row{align-items:baseline}.evl small{display:block;color:var(--dim);font-size:10px}.msg{padding:5px 6px;color:var(--dim)}
+[hidden]{display:none!important}
 .task[aria-pressed="true"] i{background:var(--c);box-shadow:0 0 8px var(--c)}
 .task[aria-pressed="true"] span{text-decoration:line-through;opacity:.6}
 .bottom{flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px 28px;padding:10px 18px}
@@ -178,6 +179,10 @@ h2{margin:0;font-size:15px;color:var(--c)}
         <div style="display:flex;flex-direction:column"><span class="glow cy" id="wxTemp" style="font-size:30px;font-weight:300;line-height:1">–</span><span id="wxDesc">Lädt …</span></div>
         <div class="dim" style="margin-left:auto;display:flex;flex-direction:column;gap:2px;font-size:11px;text-align:right"><span>FEUCHTE <span id="wxHum">–</span></span><span>WIND <span id="wxWind">–</span></span><span id="wxRainRow">REGEN <span id="wxRain">–</span></span></div>
       </div>
+    </section>
+    <section class="panel" aria-label="E-Mail" id="mailPanel" hidden style="gap:6px">
+      <div class="ph"><h2 class="head">E-Mail</h2><span>SEC.B5 · <span id="mailCount">…</span> UNGELESEN</span></div>
+      <div id="mail" class="evl" aria-live="polite"><div class="msg">Lädt …</div></div>
     </section>
     <section class="panel" aria-label="Nachrichten" style="gap:6px">
       <div class="ph"><h2 class="head">Nachrichten</h2><span>SEC.B4 · FEED</span></div>
@@ -689,10 +694,40 @@ h2{margin:0;font-size:15px;color:var(--c)}
   loadNews();
   setInterval(loadNews, 10 * 60 * 1000);
 
+  // --- E-Mail-Eingang (nur Absender und Betreff, über /api/mail) --------------
+  var mailTimer = null;
+  function loadMail() {
+    fetch('/api/mail').then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'E-Mail nicht verfügbar.'); return j; }); })
+      .then(function (d) {
+        var box = $('mail'); box.innerHTML = '';
+        $('mailCount').textContent = d.ungelesen;
+        if (!d.neueste.length) box.appendChild(el('div', 'msg', 'Keine ungelesenen Mails.'));
+        d.neueste.slice(0, 4).forEach(function (m) {
+          var row = el('div', 'row');
+          row.appendChild(el('span', 'cy', m.datum.split(' ')[1] || ''));
+          var tx = el('span', '', m.von); tx.style.flex = '1';
+          tx.appendChild(el('small', '', m.betreff));
+          row.firstChild.style.flex = '0 0 44px';
+          row.appendChild(tx); box.appendChild(row);
+        });
+      })
+      .catch(function (e) {
+        $('mailCount').textContent = '–';
+        var box = $('mail'); box.innerHTML = '';
+        box.appendChild(el('div', 'msg warn', e && e.message && e.message !== 'Failed to fetch' ? e.message : 'Server nicht erreichbar.'));
+      });
+  }
+  function startMail() {
+    $('mailPanel').hidden = false;
+    loadMail();
+    if (!mailTimer) mailTimer = setInterval(loadMail, 3 * 60 * 1000);
+  }
+
   // --- Status der Stimme ----------------------------------------------------
   fetch('/api/status').then(function (r) { return r.json(); }).then(function (j) {
     var el = $('backend');
     voiceMode = j.voice || 'auto';
+    if (j.mail) startMail();
     if (voiceMode === 'browser') { el.textContent = 'BROWSER-STIMME'; el.className = 'cy'; }
     else { el.textContent = j.keySet ? 'KEY GELADEN' : (voiceMode === 'auto' ? 'KEY FEHLT · BROWSER' : 'KEY FEHLT'); el.className = j.keySet ? 'cy' : 'warn'; }
     if (!j.chatKeySet) show('Kein Anthropic-Key gefunden. Trage ANTHROPIC_API_KEY in einstellungen.txt ein (bei Render: Environment) und starte den Server neu, damit Jarvis Fragen beantworten kann.', true);

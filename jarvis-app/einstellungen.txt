@@ -40,4 +40,10 @@ ZEITZONE=Europe/Berlin
 # Nachrichten: Adresse eines RSS-Feeds (Standard: Tagesschau).
 NEWS_FEED_URL=https://www.tagesschau.de/index~rss2.xml
 
+# E-Mail-Eingang (nur lesen, nur Absender und Betreff ungelesener Mails, nie der Inhalt).
+# MAIL_USER ist deine Adresse, MAIL_PASSWORT ein App-Passwort. Auf Render als Umgebungsvariablen setzen.
+# Server wird bei web.de, gmx, gmail und icloud automatisch erkannt, sonst MAIL_HOST eintragen (z. B. imap.web.de).
+MAIL_USER=HIER_DEINE_MAILADRESSE_EINFUEGEN
+MAIL_PASSWORT=HIER_DEIN_APP_PASSWORT_EINFUEGEN
+
 PORT=3000

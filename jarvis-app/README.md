@@ -56,6 +56,8 @@ aber die Mikrofon-Taste nicht, weil Safari dafür HTTPS verlangt.
 | `ICAL_URL` | geheime iCal-Adresse deines Kalenders (nur lesen) | Platzhalter (aus) |
 | `ZEITZONE` | Zeitzone für Termine | `Europe/Berlin` |
 | `NEWS_FEED_URL` | RSS-Feed für Schlagzeilen | Tagesschau |
+| `MAIL_USER` / `MAIL_PASSWORT` | E-Mail-Adresse und App-Passwort für den Posteingang (nur lesen) | Platzhalter (aus) |
+| `MAIL_HOST` | IMAP-Server, nur nötig außer bei web.de, gmx, gmail, icloud | automatisch |
 | `WETTER_ORT` | Standardort für Wetterfragen, z. B. `Hamburg` | leer |
 | `VOICE_ID` / `MODEL_ID` | Stimme und ElevenLabs-Modell | siehe Datei |
 | `ACCESS_CODE` | Zugangscode, Pflicht bei Betrieb im Internet | Platzhalter (aus) |
@@ -87,7 +89,10 @@ Nach jeder Änderung den Server neu starten.
 - **Aufgaben:** Du kannst sie in der Kachel anlegen, abhaken und löschen oder Jarvis bitten („Setz Milch kaufen auf die Liste“,
   „Hak Zahnarzt ab“). Die Liste wird **im Browser dieses Geräts** gespeichert (nicht auf dem Server) und bleibt nach dem Neuladen.
   Auf einem anderen Gerät ist sie leer. Löschst du die Website-Daten in Safari, ist sie weg.
-- E-Mails kann Jarvis nicht lesen.
+- **E-Mail:** Mit `MAIL_USER` und `MAIL_PASSWORT` zeigt Jarvis die ungelesenen Mails (nur Absender, Betreff, Datum) und
+  beantwortet Fragen dazu („Habe ich neue Mails?“). Er liest nie den Inhalt, markiert nichts als gelesen, sendet und löscht nichts.
+  Der Abruf läuft per IMAP über Port 993. Absender und Betreff gehen an Anthropic, sobald du danach fragst. Nimm ein App-Passwort,
+  nie dein Hauptpasswort, und setze beides nur als Umgebungsvariable.
 - Die Schnellbefehle (Uhrzeit, Aufgaben …) werden weiter direkt gesprochen, ohne Anthropic.
 
 ## Stimme
