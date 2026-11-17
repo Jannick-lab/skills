@@ -188,6 +188,23 @@ const WMO = {
 const wcache = new Map(); // Ort -> { t, data }
 const WEATHER_TTL = 10 * 60 * 1000;
 
+// Holt JSON vom Wetterdienst, versucht es bei Störungen einmal erneut und schreibt den Grund ins Protokoll.
+async function weatherJson(url, what) {
+  let last = '';
+  for (let i = 0; i < 2; i++) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(10000), headers: { 'User-Agent': 'jarvis-app' } });
+      if (r.ok) return await r.json();
+      last = 'HTTP ' + r.status + ' ' + (await r.text()).slice(0, 200);
+      if (r.status !== 429 && r.status < 500) break;
+    } catch (e) { last = (e && e.name) + ': ' + (e && e.message) + (e && e.cause ? ' (' + (e.cause.code || e.cause.message) + ')' : ''); }
+    if (i === 0) await new Promise((res) => setTimeout(res, 1200));
+  }
+  console.error('Wetter-Fehler (' + what + '):', redact(last));
+  if (/HTTP 429/.test(last)) throw new Error('Der Wetterdienst hat gerade zu viele Anfragen von diesem Server erhalten. Bitte versuche es in ein paar Minuten noch einmal.');
+  throw new Error('Der Wetterdienst ist gerade nicht erreichbar.');
+}
+
 async function getWeather(place) {
   const name = String(place || WETTER_ORT || '').trim().slice(0, 80);
   if (!name) throw new Error('Kein Ort angegeben und kein Standardort (WETTER_ORT) eingestellt.');
@@ -195,25 +212,17 @@ async function getWeather(place) {
   const hit = wcache.get(key);
   if (hit && Date.now() - hit.t < WEATHER_TTL) return hit.data;
 
-  let g;
-  try {
-    const gr = await fetch(GEO_URL + '?name=' + encodeURIComponent(name) + '&count=1&language=de&format=json', { signal: AbortSignal.timeout(8000) });
-    if (!gr.ok) throw new Error('geo ' + gr.status);
-    g = await gr.json();
-  } catch (e) { throw new Error('Der Wetterdienst ist gerade nicht erreichbar.'); }
+  const g = await weatherJson(GEO_URL + '?name=' + encodeURIComponent(name) + '&count=1&language=de&format=json', 'Ortssuche');
   const loc = g && g.results && g.results[0];
   if (!loc) throw new Error('Der Ort „' + name + '“ wurde nicht gefunden.');
 
-  let w;
-  try {
+  const w = await (async () => {
     const q = 'latitude=' + loc.latitude + '&longitude=' + loc.longitude +
       '&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m' +
       '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
       '&timezone=auto&forecast_days=3&wind_speed_unit=kmh';
-    const wr = await fetch(WEATHER_URL + '?' + q, { signal: AbortSignal.timeout(8000) });
-    if (!wr.ok) throw new Error('weather ' + wr.status);
-    w = await wr.json();
-  } catch (e) { throw new Error('Der Wetterdienst ist gerade nicht erreichbar.'); }
+    return weatherJson(WEATHER_URL + '?' + q, 'Vorhersage');
+  })();
 
   const c = w.current || {}, d = w.daily || {};
   const days = (d.time || []).map((t, i) => ({
