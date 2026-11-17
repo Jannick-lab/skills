@@ -30,4 +30,14 @@ WETTER_ORT=
 # (kostenlos, braucht keinen ElevenLabs-Key). Bei Sperre des kostenlosen ElevenLabs-Tarifs: browser.
 STIMME=auto
 
+# Kalender (nur lesen): die geheime iCal-Adresse deines Kalenders. Wer sie kennt, sieht deine Termine.
+# Google: Kalender-Einstellungen -> "Geheime Adresse im iCal-Format". Auf Render besser als Umgebungsvariable ICAL_URL setzen.
+ICAL_URL=HIER_DEINE_ICAL_ADRESSE_EINFUEGEN
+
+# Zeitzone für die Termine.
+ZEITZONE=Europe/Berlin
+
+# Nachrichten: Adresse eines RSS-Feeds (Standard: Tagesschau).
+NEWS_FEED_URL=https://www.tagesschau.de/index~rss2.xml
+
 PORT=3000

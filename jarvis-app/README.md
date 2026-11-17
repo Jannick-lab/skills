@@ -53,6 +53,9 @@ aber die Mikrofon-Taste nicht, weil Safari dafür HTTPS verlangt.
 | `MODEL` | Claude-Modell | `claude-haiku-5-5` (schnell) |
 | `ELEVENLABS_API_KEY` | Key für die Stimme | Platzhalter |
 | `STIMME` | `auto` = ElevenLabs, bei Fehlern spricht der Browser; `elevenlabs` = nur ElevenLabs; `browser` = nur Browser | `auto` |
+| `ICAL_URL` | geheime iCal-Adresse deines Kalenders (nur lesen) | Platzhalter (aus) |
+| `ZEITZONE` | Zeitzone für Termine | `Europe/Berlin` |
+| `NEWS_FEED_URL` | RSS-Feed für Schlagzeilen | Tagesschau |
 | `WETTER_ORT` | Standardort für Wetterfragen, z. B. `Hamburg` | leer |
 | `VOICE_ID` / `MODEL_ID` | Stimme und ElevenLabs-Modell | siehe Datei |
 | `ACCESS_CODE` | Zugangscode, Pflicht bei Betrieb im Internet | Platzhalter (aus) |
@@ -74,10 +77,17 @@ Nach jeder Änderung den Server neu starten.
 - **Wetter:** Jarvis kann das aktuelle Wetter und die Vorhersage für drei Tage abrufen (Open-Meteo, kein Key).
   Trage deinen Ort bei `WETTER_ORT` ein (auf Render als Umgebungsvariable). Fragen wie „Brauche ich morgen einen Regenschirm?“
   oder „Wie ist das Wetter in München?“ klappen dann. Dabei geht nur der Ortsname an Open-Meteo.
-- Die **Wetter-Kachel** im Dashboard zeigt echte Daten für `WETTER_ORT` (Temperatur, Wetter, Feuchte, Wind, Regenrisiko heute)
-  und aktualisiert sich alle 10 Minuten. Ist kein Ort eingestellt oder der Dienst nicht erreichbar, steht dort eine Meldung.
-  Kalender und Nachrichten im Dashboard sind weiter Platzhalter,
-  Jarvis hat darauf keinen Zugriff und sagt das auch. E-Mails kann er nicht lesen.
+- **Wetter-Kachel:** echte Daten für `WETTER_ORT` (Temperatur, Wetter, Feuchte, Wind, Regenrisiko heute), alle 10 Minuten neu.
+- **Kalender:** Mit `ICAL_URL` zeigt die Kachel die heutigen Termine, sonst die nächsten. Jarvis kennt sie und beantwortet Fragen dazu.
+  Nur lesen. Unterstützt werden Ganztags- und Zeittermine, Zeitzonen sowie einfache Wiederholungen (täglich, wöchentlich,
+  monatlich am Datum, jährlich, mit Ausnahmen). Komplexe Regeln wie „jeden zweiten Freitag im Monat“ zeigt er nur einmal.
+  Die Adresse bekommst du bei Google unter Kalender-Einstellungen, „Geheime Adresse im iCal-Format“. Sie gibt Zugriff auf deine
+  Termine, setze sie nur als Umgebungsvariable und nie ins Repository.
+- **Nachrichten:** Schlagzeilen aus `NEWS_FEED_URL`, Jarvis kann sie vorlesen. Die Texte sind fremde Daten.
+- **Aufgaben:** Du kannst sie in der Kachel anlegen, abhaken und löschen oder Jarvis bitten („Setz Milch kaufen auf die Liste“,
+  „Hak Zahnarzt ab“). Die Liste wird **im Browser dieses Geräts** gespeichert (nicht auf dem Server) und bleibt nach dem Neuladen.
+  Auf einem anderen Gerät ist sie leer. Löschst du die Website-Daten in Safari, ist sie weg.
+- E-Mails kann Jarvis nicht lesen.
 - Die Schnellbefehle (Uhrzeit, Aufgaben …) werden weiter direkt gesprochen, ohne Anthropic.
 
 ## Stimme

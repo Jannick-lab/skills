@@ -89,6 +89,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
 .task i{flex:0 0 14px;height:14px;border:1px solid var(--c)}
 .task span{flex:1 1 auto}
 .task small{font-size:10px;color:var(--dim)}
+.trow{display:flex;gap:4px;align-items:center}.trow .task{flex:1 1 auto;min-width:0}.del{flex:0 0 36px;min-height:36px;padding:0;font-size:14px}.tform{display:flex;gap:6px;margin-top:4px}.tform .field{height:36px;font-size:13px}.tform .btn{min-height:36px;padding:0 14px}.evl{display:flex;flex-direction:column}.evl .row{align-items:baseline}.evl small{display:block;color:var(--dim);font-size:10px}.msg{padding:5px 6px;color:var(--dim)}
 .task[aria-pressed="true"] i{background:var(--c);box-shadow:0 0 8px var(--c)}
 .task[aria-pressed="true"] span{text-decoration:line-through;opacity:.6}
 .bottom{flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px 28px;padding:10px 18px}
@@ -111,7 +112,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
 
 <header class="top rise">
   <div class="brand"><b class="head glow flicker">JARVIS</b><span class="head dim" style="font-size:13px">Persönlicher Assistent</span></div>
-  <div class="codes"><span>SYS.OK</span><span>NODE 01</span><span>X 0512 · Y 0384</span><span>SITZUNG <span id="session">00:00:00</span></span><span class="warn tag">DEMO-DATEN</span></div>
+  <div class="codes"><span>SYS.OK</span><span>NODE 01</span><span>X 0512 · Y 0384</span><span>SITZUNG <span id="session">00:00:00</span></span><span class="warn tag">SYSTEMWERTE SIMULIERT</span></div>
 </header>
 
 <main class="grid">
@@ -163,13 +164,12 @@ h2{margin:0;font-size:15px;color:var(--c)}
   <div class="side rise d3">
     <section class="panel" aria-label="Kalender">
       <div class="ph"><h2 class="head">Kalender</h2><span>SEC.B1 · HEUTE</span></div>
-      <div class="row"><span class="warn" style="flex:0 0 44px">09:30</span><span style="flex:1">Team-Sync</span></div>
-      <div class="row"><span class="cy" style="flex:0 0 44px">13:00</span><span style="flex:1">Mittag mit [NAME]</span></div>
-      <div class="row"><span class="cy" style="flex:0 0 44px">17:15</span><span style="flex:1">Training</span></div>
+      <div class="evl" id="cal" aria-live="polite"><div class="msg">Lädt …</div></div>
     </section>
     <section class="panel" aria-label="Aufgaben" style="gap:6px">
       <div class="ph"><h2 class="head">Aufgaben</h2><span>SEC.B2 · <span id="open">0</span> OFFEN</span></div>
       <div id="tasks" style="display:flex;flex-direction:column;gap:2px"></div>
+      <form class="tform" id="taskForm" autocomplete="off"><label class="sr" for="taskIn">Neue Aufgabe</label><input id="taskIn" class="field" type="text" maxlength="120" placeholder="Neue Aufgabe …"><button type="submit" class="btn" aria-label="Aufgabe hinzufügen">+</button></form>
     </section>
     <section class="panel" aria-label="Wetter">
       <div class="ph"><h2 class="head">Wetter</h2><span>SEC.B3 · <span id="wxPlace">…</span></span></div>
@@ -181,9 +181,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
     </section>
     <section class="panel" aria-label="Nachrichten" style="gap:6px">
       <div class="ph"><h2 class="head">Nachrichten</h2><span>SEC.B4 · FEED</span></div>
-      <div class="row"><span class="cy">01</span><span>[SCHLAGZEILE AUS DEINER QUELLE]</span></div>
-      <div class="row"><span class="cy">02</span><span>[SCHLAGZEILE AUS DEINER QUELLE]</span></div>
-      <div class="row"><span class="cy">03</span><span>[SCHLAGZEILE AUS DEINER QUELLE]</span></div>
+      <div id="news" aria-live="polite"><div class="msg">Lädt …</div></div>
     </section>
   </div>
 </main>
@@ -243,29 +241,63 @@ h2{margin:0;font-size:15px;color:var(--c)}
   drawGauges();
 
   // --- Aufgaben --------------------------------------------------------------
-  var tasks = [
-    { label: 'Wochenplan prüfen', code: 'T-01', done: true },
-    { label: 'E-Mails beantworten', code: 'T-02', done: false },
-    { label: 'Einkaufsliste ergänzen', code: 'T-03', done: false }
-  ];
+  var STORE = 'jarvis_tasks_v1';
+  function loadTasks() {
+    try {
+      var r = JSON.parse(localStorage.getItem(STORE) || 'null');
+      if (Array.isArray(r)) return r.slice(0, 100).map(function (t) { return { label: String(t.label || '').slice(0, 120), done: !!t.done }; }).filter(function (t) { return t.label; });
+    } catch (e) {}
+    return [];
+  }
+  var tasks = loadTasks();
+  function saveTasks() { try { localStorage.setItem(STORE, JSON.stringify(tasks)); } catch (e) {} }
   function openTasks() { return tasks.filter(function (t) { return !t.done; }); }
   function drawTasks() {
     var box = $('tasks');
     box.innerHTML = '';
-    tasks.forEach(function (t) {
+    if (!tasks.length) { var m = document.createElement('div'); m.className = 'msg'; m.textContent = 'Keine Aufgaben. Füge unten eine hinzu oder sag es Jarvis.'; box.appendChild(m); }
+    tasks.forEach(function (t, i) {
+      var wrap = document.createElement('div');
+      wrap.className = 'trow';
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'btn task row';
       btn.setAttribute('aria-pressed', String(t.done));
       btn.innerHTML = '<i aria-hidden="true"></i><span></span><small></small>';
       btn.children[1].textContent = t.label;
-      btn.children[2].textContent = t.code;
-      btn.onclick = function () { t.done = !t.done; drawTasks(); };
-      box.appendChild(btn);
+      btn.children[2].textContent = 'T-' + pad(i + 1);
+      btn.onclick = function () { t.done = !t.done; saveTasks(); drawTasks(); };
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn del';
+      del.setAttribute('aria-label', 'Aufgabe löschen: ' + t.label);
+      del.textContent = '✕';
+      del.onclick = function () { tasks.splice(tasks.indexOf(t), 1); saveTasks(); drawTasks(); };
+      wrap.appendChild(btn); wrap.appendChild(del);
+      box.appendChild(wrap);
     });
     $('open').textContent = openTasks().length;
   }
   drawTasks();
+  $('taskForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = $('taskIn').value.replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (!v || tasks.length >= 100) return;
+    tasks.push({ label: v, done: false });
+    $('taskIn').value = '';
+    saveTasks(); drawTasks();
+  });
+  // Aktionen, die Jarvis per Sprache ausgelöst hat (anlegen, abhaken, löschen).
+  function applyActions(acts) {
+    (acts || []).forEach(function (a) {
+      if (a.type === 'add') { if (tasks.length < 100) tasks.push({ label: a.label, done: false }); return; }
+      var t = tasks.filter(function (x) { return x.label === a.label; })[0];
+      if (!t) return;
+      if (a.type === 'done') t.done = !!a.done;
+      else if (a.type === 'delete') tasks.splice(tasks.indexOf(t), 1);
+    });
+    saveTasks(); drawTasks();
+  }
 
   // --- Uhr -------------------------------------------------------------------
   try { $('zone').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone.toUpperCase(); } catch (e) {}
@@ -427,10 +459,12 @@ h2{margin:0;font-size:15px;color:var(--c)}
       .then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (j) {
           if (!res.ok) throw new Error(j.error || 'Fehler ' + res.status);
-          return j.reply;
+          return j;
         });
       })
-      .then(function (reply) {
+      .then(function (j) {
+        var reply = j.reply;
+        applyActions(j.actions);
         pushHistory('user', question);
         pushHistory('assistant', reply);
         setThinking(false);
@@ -592,6 +626,68 @@ h2{margin:0;font-size:15px;color:var(--c)}
   }
   loadWeather();
   setInterval(loadWeather, 10 * 60 * 1000);
+
+  // --- Kalender (echte Termine über /api/calendar) ---------------------------
+  var calData = null, calError = '';
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function drawCalendar() {
+    var box = $('cal');
+    box.innerHTML = '';
+    if (calError) { box.appendChild(el('div', 'msg warn', calError)); return; }
+    if (!calData) { box.appendChild(el('div', 'msg', 'Lädt …')); return; }
+    var now = Date.now(), list = calData.termine || [];
+    var today = list.filter(function (t) { return t.datum <= calData.heute; });
+    var shown = today, later = false;
+    if (!today.length) {
+      box.appendChild(el('div', 'msg', 'Heute keine Termine.'));
+      shown = list.filter(function (t) { return t.datum > calData.heute; }).slice(0, 2);
+      later = true;
+    }
+    var nextIdx = -1;
+    shown.forEach(function (t, i) { if (nextIdx < 0 && t.end_ms > now) nextIdx = i; });
+    shown.slice(0, 5).forEach(function (t, i) {
+      var row = el('div', 'row');
+      var when = t.ganztaegig ? 'GANZ' : t.von;
+      if (later) when = t.wochentag.slice(0, 2).toUpperCase() + ' ' + (t.ganztaegig ? '' : t.von);
+      var tm = el('span', i === nextIdx && !later ? 'warn' : 'cy', when.trim());
+      tm.style.flex = later ? '0 0 62px' : '0 0 44px';
+      var tx = el('span', '', t.titel);
+      tx.style.flex = '1';
+      if (t.end_ms < now && !later) row.style.opacity = '.5';
+      if (t.ort) tx.appendChild(el('small', '', t.ort));
+      row.appendChild(tm); row.appendChild(tx);
+      box.appendChild(row);
+    });
+    if (shown.length > 5) box.appendChild(el('div', 'msg', '+ ' + (shown.length - 5) + ' weitere'));
+  }
+  function loadCalendar() {
+    fetch('/api/calendar?tage=7').then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Kalender nicht verfügbar.'); return j; }); })
+      .then(function (d) { calData = d; calError = ''; drawCalendar(); })
+      .catch(function (e) { calError = e && e.message && e.message !== 'Failed to fetch' ? e.message : 'Server nicht erreichbar.'; drawCalendar(); });
+  }
+  loadCalendar();
+  setInterval(loadCalendar, 5 * 60 * 1000);
+  setInterval(drawCalendar, 60 * 1000);
+
+  // --- Nachrichten (RSS über /api/news) --------------------------------------
+  function loadNews() {
+    fetch('/api/news').then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Nachrichten nicht verfügbar.'); return j; }); })
+      .then(function (d) {
+        var box = $('news'); box.innerHTML = '';
+        (d.items || []).slice(0, 4).forEach(function (it, i) {
+          var row = el('div', 'row');
+          row.appendChild(el('span', 'cy', pad(i + 1)));
+          var tx = el('span', '', it.titel); tx.style.flex = '1';
+          row.appendChild(tx); box.appendChild(row);
+        });
+      })
+      .catch(function (e) {
+        var box = $('news'); box.innerHTML = '';
+        box.appendChild(el('div', 'msg warn', e && e.message && e.message !== 'Failed to fetch' ? e.message : 'Server nicht erreichbar.'));
+      });
+  }
+  loadNews();
+  setInterval(loadNews, 10 * 60 * 1000);
 
   // --- Status der Stimme ----------------------------------------------------
   fetch('/api/status').then(function (r) { return r.json(); }).then(function (j) {
