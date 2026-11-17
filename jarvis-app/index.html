@@ -497,7 +497,8 @@ h2{margin:0;font-size:15px;color:var(--c)}
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SR) {
     mic.hidden = false;
-    var rec = null, listening = false, gotResult = false;
+    var rec = null, listening = false, gotResult = false, micTimer = null;
+    var SILENT = 'Ich konnte nichts verstehen. Öffne Jarvis in Safari (nicht über das Symbol auf dem Home-Bildschirm) und schalte unter Einstellungen > Allgemein > Tastatur die Diktierfunktion ein. Alternativ tippe ins Eingabefeld, nutze das Mikrofon der Tastatur und tippe dann auf Senden.';
     var micErrors = {
       'not-allowed': 'Der Zugriff auf das Mikrofon wurde verweigert. Erlaube ihn in den Browser-Einstellungen.',
       'service-not-allowed': 'Die Spracherkennung ist in diesem Browser nicht erlaubt.',
@@ -507,6 +508,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
       'language-not-supported': 'Deutsch wird von der Spracherkennung dieses Browsers nicht unterstützt.'
     };
     var endListening = function () {
+      clearTimeout(micTimer);
       listening = false;
       mic.setAttribute('aria-pressed', 'false');
       hud.classList.remove('thinking');
@@ -526,6 +528,17 @@ h2{margin:0;font-size:15px;color:var(--c)}
         listening = true;
         mic.setAttribute('aria-pressed', 'true');
         $('stateLabel').textContent = 'HÖRT ZU …';
+        // Manche Browser starten die Erkennung, liefern aber nie etwas. Dann nach 12 Sekunden abbrechen und es sagen.
+        clearTimeout(micTimer);
+        micTimer = setTimeout(function () {
+          if (!listening || gotResult) return;
+          var t = $('q').value.trim();
+          try { rec.abort(); } catch (e) {}
+          gotResult = true;
+          endListening();
+          $('stateLabel').textContent = 'BEREIT';
+          if (t) { $('q').value = ''; ask(t); } else show(SILENT, true);
+        }, 12000);
       };
       rec.onresult = function (ev) {
         var txt = '', fin = false;
@@ -544,6 +557,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
         endListening();
         if (!busy && !gotResult) $('stateLabel').textContent = 'BEREIT';
         if (hadText) { var t = $('q').value; $('q').value = ''; ask(t); }
+        else if (!gotResult && !busy) { gotResult = true; show(SILENT, true); }
       };
       try { rec.start(); } catch (e) { endListening(); show('Die Spracheingabe konnte nicht gestartet werden.', true); }
     });

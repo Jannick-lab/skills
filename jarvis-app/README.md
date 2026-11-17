@@ -103,6 +103,14 @@ oft gesperrt („detected_unusual_activity“, HTTP 401). Dann hilft ein bezahlt
 und versucht ElevenLabs in dieser Sitzung nicht erneut. Mit `STIMME=browser` wird ElevenLabs gar nicht benutzt
 (kein ElevenLabs-Key nötig). Die Browser-Stimme klingt nüchterner und hängt vom Gerät ab.
 
+## Mikrofon klappt nicht (iPad)
+
+- Öffne Jarvis als normale Seite in **Safari**. Aus einem Symbol auf dem Home-Bildschirm startet die Spracherkennung auf dem iPad
+  meist, liefert aber nichts.
+- Schalte unter **Einstellungen > Allgemein > Tastatur** die **Diktierfunktion** ein (Sprache Deutsch).
+- Erlaube das Mikrofon unter „aA“ > **Website-Einstellungen > Mikrofon**.
+- Immer möglich: ins Eingabefeld tippen, das **Mikrofon der Tastatur** benutzen und dann **Senden** tippen.
+
 ## Fehlermeldungen
 
 Das Dashboard zeigt verständliche Meldungen, zum Beispiel bei fehlendem oder ungültigem Key,
