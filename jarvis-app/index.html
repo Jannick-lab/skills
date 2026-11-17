@@ -172,14 +172,11 @@ h2{margin:0;font-size:15px;color:var(--c)}
       <div id="tasks" style="display:flex;flex-direction:column;gap:2px"></div>
     </section>
     <section class="panel" aria-label="Wetter">
-      <div class="ph"><h2 class="head">Wetter</h2><span>SEC.B3 · [ORT]</span></div>
+      <div class="ph"><h2 class="head">Wetter</h2><span>SEC.B3 · <span id="wxPlace">…</span></span></div>
       <div style="display:flex;align-items:center;gap:14px">
-        <svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" style="flex:0 0 48px;filter:drop-shadow(0 0 5px rgba(63,232,255,.7))">
-          <path class="rg" stroke-width="1.6" d="M14 30a8 8 0 0 1 1-16 11 11 0 0 1 21 3 6.5 6.5 0 0 1-1 13z"/>
-          <path class="rg" stroke-width="1.6" d="M17 36l-2 5M25 36l-2 5M33 36l-2 5"/>
-        </svg>
-        <div style="display:flex;flex-direction:column"><span class="glow cy" style="font-size:30px;font-weight:300;line-height:1">7°C</span><span>Leichter Regen</span></div>
-        <div class="dim" style="margin-left:auto;display:flex;flex-direction:column;gap:2px;font-size:11px;text-align:right"><span>FEUCHTE 82 %</span><span>WIND 14 KM/H</span><span class="warn">REGEN 70 %</span></div>
+        <svg id="wxIcon" viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" style="flex:0 0 48px;filter:drop-shadow(0 0 5px rgba(63,232,255,.7))"></svg>
+        <div style="display:flex;flex-direction:column"><span class="glow cy" id="wxTemp" style="font-size:30px;font-weight:300;line-height:1">–</span><span id="wxDesc">Lädt …</span></div>
+        <div class="dim" style="margin-left:auto;display:flex;flex-direction:column;gap:2px;font-size:11px;text-align:right"><span>FEUCHTE <span id="wxHum">–</span></span><span>WIND <span id="wxWind">–</span></span><span id="wxRainRow">REGEN <span id="wxRain">–</span></span></div>
       </div>
     </section>
     <section class="panel" aria-label="Nachrichten" style="gap:6px">
@@ -543,6 +540,58 @@ h2{margin:0;font-size:15px;color:var(--c)}
     b.onclick = function () { unlockAudio(); c.run(); };
     $('cmds').appendChild(b);
   });
+
+  // --- Wetter (echte Daten über /api/weather) --------------------------------
+  var CLOUD = '<path class="rg" stroke-width="1.6" d="M14 30a8 8 0 0 1 1-16 11 11 0 0 1 21 3 6.5 6.5 0 0 1-1 13z"/>';
+  var ICONS = {
+    sun: '<circle class="rg" stroke-width="1.6" cx="24" cy="24" r="8"/><path class="rg" stroke-width="1.6" d="M24 6v6M24 36v6M6 24h6M36 24h6M11 11l4 4M33 33l4 4M37 11l-4 4M15 33l-4 4"/>',
+    part: '<circle class="rg" stroke-width="1.6" cx="34" cy="13" r="5"/>' + CLOUD,
+    cloud: CLOUD,
+    rain: CLOUD + '<path class="rg" stroke-width="1.6" d="M17 36l-2 5M25 36l-2 5M33 36l-2 5"/>',
+    snow: CLOUD + '<path class="rg" stroke-width="3" stroke-linecap="round" d="M17 37h.01M25 37h.01M33 37h.01M21 42h.01M29 42h.01"/>',
+    storm: CLOUD + '<path class="rg" stroke-width="1.6" d="M26 32l-5 8h6l-4 7"/>',
+    fog: '<path class="rg" stroke-width="1.6" d="M10 18h28M8 25h32M12 32h24"/>'
+  };
+  function iconFor(c) {
+    if (c === 0) return 'sun';
+    if (c === 1 || c === 2) return 'part';
+    if (c === 3) return 'cloud';
+    if (c === 45 || c === 48) return 'fog';
+    if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return 'rain';
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return 'snow';
+    if (c >= 95) return 'storm';
+    return 'cloud';
+  }
+  function wxFail(msg) {
+    $('wxIcon').innerHTML = ICONS.cloud;
+    $('wxTemp').textContent = '–';
+    $('wxDesc').textContent = msg;
+    $('wxDesc').className = 'warn';
+    $('wxHum').textContent = $('wxWind').textContent = $('wxRain').textContent = '–';
+    $('wxRainRow').className = '';
+  }
+  function loadWeather() {
+    fetch('/api/weather').then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'Wetter nicht verfügbar.'); return j; }); })
+      .then(function (w) {
+        var now = w.jetzt || {}, today = (w.vorhersage || [])[0] || {};
+        $('wxPlace').textContent = String(w.ort || '').split(',')[0].toUpperCase();
+        $('wxIcon').innerHTML = ICONS[iconFor(now.code)];
+        $('wxTemp').textContent = Math.round(now.temperatur_c) + '°C';
+        $('wxDesc').textContent = (now.wetter || '').charAt(0).toUpperCase() + (now.wetter || '').slice(1);
+        $('wxDesc').className = '';
+        $('wxHum').textContent = Math.round(now.luftfeuchte_prozent) + ' %';
+        $('wxWind').textContent = Math.round(now.wind_kmh) + ' KM/H';
+        var rain = today.regenwahrscheinlichkeit_prozent;
+        $('wxRain').textContent = (rain == null ? '–' : rain + ' %');
+        $('wxRainRow').className = rain >= 50 ? 'warn' : '';
+      })
+      .catch(function (e) {
+        $('wxPlace').textContent = '–';
+        wxFail(e && e.message && e.message !== 'Failed to fetch' ? e.message : 'Server nicht erreichbar.');
+      });
+  }
+  loadWeather();
+  setInterval(loadWeather, 10 * 60 * 1000);
 
   // --- Status der Stimme ----------------------------------------------------
   fetch('/api/status').then(function (r) { return r.json(); }).then(function (j) {

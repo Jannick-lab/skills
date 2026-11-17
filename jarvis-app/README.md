@@ -74,7 +74,9 @@ Nach jeder Änderung den Server neu starten.
 - **Wetter:** Jarvis kann das aktuelle Wetter und die Vorhersage für drei Tage abrufen (Open-Meteo, kein Key).
   Trage deinen Ort bei `WETTER_ORT` ein (auf Render als Umgebungsvariable). Fragen wie „Brauche ich morgen einen Regenschirm?“
   oder „Wie ist das Wetter in München?“ klappen dann. Dabei geht nur der Ortsname an Open-Meteo.
-- Die Wetter-Kachel im Dashboard bleibt ein Platzhalter. Kalender und Nachrichten im Dashboard sind ebenfalls Platzhalter,
+- Die **Wetter-Kachel** im Dashboard zeigt echte Daten für `WETTER_ORT` (Temperatur, Wetter, Feuchte, Wind, Regenrisiko heute)
+  und aktualisiert sich alle 10 Minuten. Ist kein Ort eingestellt oder der Dienst nicht erreichbar, steht dort eine Meldung.
+  Kalender und Nachrichten im Dashboard sind weiter Platzhalter,
   Jarvis hat darauf keinen Zugriff und sagt das auch. E-Mails kann er nicht lesen.
 - Die Schnellbefehle (Uhrzeit, Aufgaben …) werden weiter direkt gesprochen, ohne Anthropic.
 

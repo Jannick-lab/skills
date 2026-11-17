@@ -213,6 +213,7 @@ async function getWeather(place) {
   const c = w.current || {}, d = w.daily || {};
   const days = (d.time || []).map((t, i) => ({
     datum: t,
+    code: d.weather_code && d.weather_code[i],
     wetter: WMO[d.weather_code && d.weather_code[i]] || 'unbekannt',
     min_c: d.temperature_2m_min && d.temperature_2m_min[i],
     max_c: d.temperature_2m_max && d.temperature_2m_max[i],
@@ -221,6 +222,7 @@ async function getWeather(place) {
   const data = {
     ort: loc.name + (loc.country ? ', ' + loc.country : ''),
     jetzt: {
+      code: c.weather_code,
       wetter: WMO[c.weather_code] || 'unbekannt',
       temperatur_c: c.temperature_2m, gefuehlt_c: c.apparent_temperature,
       luftfeuchte_prozent: c.relative_humidity_2m, niederschlag_mm: c.precipitation,
@@ -418,6 +420,9 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === 'GET' && url === '/api/status') {
     return sendJson(res, 200, { keySet: keySet, chatKeySet: chatKeySet, model: CLAUDE_MODEL, voice: VOICE_MODE });
+  }
+  if (req.method === 'GET' && url === '/api/weather') {
+    return getWeather().then((d) => sendJson(res, 200, d)).catch((e) => sendJson(res, 502, { error: String(e && e.message || 'Wetter nicht verfügbar.') }));
   }
   if (req.method === 'POST' && url === '/api/chat') {
     return chat(req, res).catch((e) => {
