@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JARVIS</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Saira+Condensed:wght@400;500;600&display=swap">
+<style>
+:root{--c:#3fe8ff;--dim:#7fb6c6;--c-soft:rgba(63,232,255,.28);--w:#ffb347;--ink:#d9f8ff;--bg0:#01040a}
+*{box-sizing:border-box}
+body{margin:0;background:#01040a}
+.hud{min-height:100vh;padding:18px 22px;display:flex;flex-direction:column;gap:16px;font:12px/1.45 'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;color:var(--ink);background-color:var(--bg0);background-image:linear-gradient(rgba(63,232,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(63,232,255,.045) 1px,transparent 1px),linear-gradient(rgba(63,232,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(63,232,255,.02) 1px,transparent 1px),radial-gradient(ellipse at 50% 38%,#082440 0%,#04101f 45%,#01040a 100%);background-size:80px 80px,80px 80px,16px 16px,16px 16px,100% 100%}
+.head{font-family:'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.22em;font-weight:500}
+h2{margin:0;font-size:15px;color:var(--c)}
+.dim{color:var(--dim)}.cy{color:var(--c)}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;padding-bottom:10px;border-bottom:1px solid var(--c-soft)}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand b{font-size:26px;font-weight:600;letter-spacing:.42em;color:var(--c)}
+.codes{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;color:var(--dim);font-size:11px;letter-spacing:.08em}
+.tag{border:1px solid rgba(255,179,71,.5);padding:2px 8px}
+.grid{flex:1 1 auto;display:grid;grid-template-columns:minmax(240px,290px) minmax(0,1fr) minmax(270px,330px);gap:18px;align-items:stretch}
+@media (max-width:1040px){.grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.core{grid-column:1 / -1;order:-1}}
+@media (max-width:640px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{position:relative;padding:14px 16px;display:flex;flex-direction:column;gap:8px;background:linear-gradient(160deg,rgba(14,44,72,.42),rgba(4,16,30,.5));border:1px solid var(--c-soft);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:inset 0 0 24px rgba(63,232,255,.04);transition:border-color .35s,box-shadow .35s}
+.panel::before,.panel::after{content:"";position:absolute;width:14px;height:14px;border:2px solid var(--c);pointer-events:none;filter:drop-shadow(0 0 4px var(--c))}
+.panel::before{top:-2px;left:-2px;border-right:0;border-bottom:0}
+.panel::after{bottom:-2px;right:-2px;border-left:0;border-top:0}
+.panel:hover{border-color:var(--c);box-shadow:0 0 22px rgba(63,232,255,.28),inset 0 0 30px rgba(63,232,255,.09)}
+.ph{display:flex;justify-content:space-between;align-items:baseline}
+.ph span{color:var(--dim);font-size:10px}
+.glow{text-shadow:0 0 8px rgba(63,232,255,.75),0 0 22px rgba(63,232,255,.35)}
+.warn{color:var(--w);text-shadow:0 0 8px rgba(255,179,71,.6)}
+.scale{height:6px;background-image:repeating-linear-gradient(90deg,var(--c-soft) 0 1px,transparent 1px 8px)}
+.row{display:flex;gap:12px;padding:5px 6px;transition:background .25s,box-shadow .25s}
+.row:hover{background:rgba(63,232,255,.08);box-shadow:inset 2px 0 0 var(--c)}
+.kv{display:flex;justify-content:space-between;color:var(--dim);font-size:11px}
+.btn{font:inherit;color:var(--c);background:rgba(63,232,255,.06);border:1px solid var(--c-soft);cursor:pointer;min-height:44px;transition:box-shadow .25s,background .25s,border-color .25s,color .25s}
+.btn:hover,.btn:focus-visible{background:rgba(63,232,255,.16);border-color:var(--c);color:#fff;box-shadow:0 0 18px rgba(63,232,255,.55),inset 0 0 12px rgba(63,232,255,.2);outline:none}
+.cmd{font-family:'Saira Condensed','Arial Narrow',sans-serif;text-transform:uppercase;letter-spacing:.22em;font-size:13px;padding:0 16px}
+.field{flex:1 1 auto;min-width:0;height:44px;padding:0 12px;font:inherit;font-size:14px;color:var(--ink);background:rgba(2,10,20,.7);border:1px solid var(--c-soft);transition:box-shadow .25s,border-color .25s}
+.field::placeholder{color:var(--dim)}
+.field:hover,.field:focus{border-color:var(--c);box-shadow:0 0 20px rgba(63,232,255,.4);outline:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Systemanzeigen */
+.gauge{align-items:center;gap:14px}
+.gbox{position:relative;width:104px;height:104px;flex:0 0 104px}
+.gnum{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gnum b{font-size:20px;font-weight:500}
+.ginfo{display:flex;flex-direction:column;gap:3px;min-width:0;font-size:11px}
+.ginfo .head{font-size:16px;color:var(--ink)}
+.g-track{fill:none;stroke:rgba(63,232,255,.14);stroke-width:5}
+.g-val{fill:none;stroke-width:5;transform-origin:50px 50px;transform:rotate(-90deg);transition:stroke-dasharray 1.2s ease,stroke .6s}
+.g-ticks{fill:none;stroke:var(--c);stroke-width:3;stroke-dasharray:.8 4.12;opacity:.55}
+.g-inner{fill:none;stroke:var(--c);stroke-width:.6;stroke-dasharray:3 3;opacity:.5;transform-origin:50px 50px;animation:spin 30s linear infinite}
+.gauge svg{transition:filter .3s}.gauge:hover svg{filter:drop-shadow(0 0 8px rgba(63,232,255,.8))}
+/* Kern */
+.core{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:0;padding:4px 0}
+.core-wrap{position:relative;width:100%;max-width:460px;aspect-ratio:1 / 1}
+.core-svg{width:100%;height:100%;display:block;filter:drop-shadow(0 0 6px rgba(63,232,255,.65));transition:filter .4s}
+.core-wrap:hover .core-svg{filter:drop-shadow(0 0 12px rgba(63,232,255,.95))}
+.rg{fill:none;stroke:var(--c)}
+.r-ticks{stroke-width:6;stroke-dasharray:1.2 9.06;opacity:.7}
+.r-line{stroke-width:.8;opacity:.45}
+.r-arcs{stroke-width:3;stroke-dasharray:200 60 90 40 260 80 120 255.8}
+.r-dots{stroke-width:1.2;stroke-dasharray:2 7;opacity:.8}
+.r-amber{stroke:var(--w);stroke-width:2.5;stroke-dasharray:90 349.8 30 409.8;filter:drop-shadow(0 0 5px rgba(255,179,71,.8))}
+.r-thick{stroke-width:9;stroke-dasharray:150 41.6;opacity:.22}
+.r-seg{stroke-width:2;stroke-dasharray:14 6.42}
+.r-cross{stroke:var(--c);stroke-width:1;opacity:.7;fill:none}
+.deg{fill:var(--dim);font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.1em}
+.spin{transform-origin:220px 220px;animation:spin linear infinite}
+.s1{animation-duration:140s}.s2{animation-duration:46s}.s3{animation-duration:70s;animation-direction:reverse}.s4{animation-duration:20s;animation-direction:reverse}.s5{animation-duration:34s}.s6{animation-duration:26s;animation-direction:reverse}
+.heart{position:absolute;left:30%;top:30%;width:40%;height:40%;border-radius:50%;background:radial-gradient(circle,rgba(217,248,255,.95) 0%,rgba(63,232,255,.55) 22%,rgba(63,232,255,.14) 55%,rgba(63,232,255,0) 72%);animation:breathe 4.5s ease-in-out infinite}
+.name{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;font-size:clamp(15px,2.4vw,22px);font-weight:600;letter-spacing:.4em;text-indent:.4em;color:#01101c}
+.speaking .heart{animation:pulse .62s ease-in-out infinite}
+.speaking .s2{animation-duration:9s}.speaking .s4{animation-duration:5s}.speaking .s6{animation-duration:7s}
+.speaking .core-svg{filter:drop-shadow(0 0 14px rgba(63,232,255,1))}
+.state{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:.14em;color:var(--c)}
+.state i{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor;animation:blink 1.6s steps(2) infinite}
+.speaking .state{color:var(--w)}.thinking .state{color:var(--w)}#mic{width:44px;padding:0;display:inline-grid;place-items:center}#mic[hidden]{display:none}#mic[aria-pressed="true"]{background:rgba(63,232,255,.3);border-color:var(--c);box-shadow:0 0 18px rgba(63,232,255,.6)}.btn:disabled{opacity:.5;cursor:default}
+#reply{white-space:pre-line;margin:0;min-height:40px;max-width:520px;text-align:center;font-size:14px;text-wrap:pretty}
+.wave{display:flex;align-items:center;justify-content:center;gap:4px;height:56px;width:100%;max-width:520px;transform:scaleY(.22);opacity:.75;transition:transform .5s ease,opacity .5s}
+.speaking .wave{transform:scaleY(1);opacity:1}
+.bar{width:3px;background:var(--c);box-shadow:0 0 6px var(--c);animation:wave ease-in-out infinite alternate}
+.ask{flex-direction:row;align-items:center;gap:10px;width:100%;max-width:560px;padding:8px}
+/* Rechts / unten */
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.task{display:flex;align-items:center;gap:10px;padding:4px 8px;text-align:left;border-color:transparent;background:transparent;color:var(--ink)}
+.task i{flex:0 0 14px;height:14px;border:1px solid var(--c)}
+.task span{flex:1 1 auto}
+.task small{font-size:10px;color:var(--dim)}
+.task[aria-pressed="true"] i{background:var(--c);box-shadow:0 0 8px var(--c)}
+.task[aria-pressed="true"] span{text-decoration:line-through;opacity:.6}
+.bottom{flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px 28px;padding:10px 18px}
+.cmds{flex:1 1 320px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.flicker{animation:flicker 9s linear infinite}
+.rise{animation:rise .9s cubic-bezier(.2,.7,.2,1) both}
+.d1{animation-delay:.1s}.d2{animation-delay:.3s}.d3{animation-delay:.5s}.d4{animation-delay:.7s}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.07);opacity:1}}
+@keyframes pulse{0%,100%{transform:scale(.94);opacity:.85}50%{transform:scale(1.26);opacity:1}}
+@keyframes wave{from{transform:scaleY(.12)}to{transform:scaleY(1)}}
+@keyframes rise{from{opacity:0;transform:translateY(14px);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+@keyframes flicker{0%,91%,93.5%,96%,100%{opacity:1}92%{opacity:.55}93%{opacity:.9}95%{opacity:.7}}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.spin,.heart,.bar,.g-inner,.flicker,.rise,.state i{animation:none}}
+</style>
+</head>
+<body>
+<div class="hud" id="hud">
+
+<header class="top rise">
+  <div class="brand"><b class="head glow flicker">JARVIS</b><span class="head dim" style="font-size:13px">Persönlicher Assistent</span></div>
+  <div class="codes"><span>SYS.OK</span><span>NODE 01</span><span>X 0512 · Y 0384</span><span>SITZUNG <span id="session">00:00:00</span></span><span class="warn tag">DEMO-DATEN</span></div>
+</header>
+
+<main class="grid">
+
+  <section class="panel rise d2" aria-label="Systemstatus" style="gap:14px;padding:16px">
+    <div class="ph"><h2 class="head">Systemstatus</h2><span>SEC.A1</span></div>
+    <div class="scale"></div>
+    <div id="gauges"></div>
+    <div class="scale" style="margin-top:auto"></div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="kv"><span>KERN</span><span class="cy">ONLINE</span></div>
+      <div class="kv"><span>SPRACHMODUL</span><span class="cy" id="voiceState">STANDBY</span></div>
+      <div class="kv"><span>STIMME (API)</span><span id="backend" class="dim">PRÜFE …</span></div>
+    </div>
+  </section>
+
+  <section class="core rise d1" aria-label="Assistent">
+    <div class="core-wrap">
+      <svg class="core-svg" viewBox="0 0 440 440" role="img" aria-label="Animierter Kern des Assistenten">
+        <g class="spin s1"><circle class="rg r-ticks" cx="220" cy="220" r="196"/></g>
+        <circle class="rg r-line" cx="220" cy="220" r="188"/>
+        <g class="spin s2"><circle class="rg r-arcs" cx="220" cy="220" r="176"/></g>
+        <g class="spin s3"><circle class="rg r-dots" cx="220" cy="220" r="156"/></g>
+        <g class="spin s4"><circle class="rg r-amber" cx="220" cy="220" r="140"/></g>
+        <g class="spin s5"><circle class="rg r-thick" cx="220" cy="220" r="122"/></g>
+        <circle class="rg r-line" cx="220" cy="220" r="98"/>
+        <g class="spin s6"><circle class="rg r-seg" cx="220" cy="220" r="78"/></g>
+        <path class="r-cross" d="M220 126V108M220 314v18M126 220h-18M314 220h18M220 24v10M220 406v10M24 220h10M406 220h10"/>
+        <text class="deg" text-anchor="middle" x="220" y="12">000</text>
+        <text class="deg" text-anchor="middle" x="220" y="436">180</text>
+        <text class="deg" x="421" y="223">090</text>
+        <text class="deg" text-anchor="end" x="19" y="223">270</text>
+      </svg>
+      <div class="heart"></div>
+      <div class="name head">JARVIS</div>
+    </div>
+    <div class="state"><i></i><span id="stateLabel">BEREIT</span><span class="dim">· KANAL 01</span></div>
+    <p id="reply" class="glow" aria-live="polite">Bereit. Wie kann ich helfen?</p>
+    <div class="wave" id="wave" aria-hidden="true"></div>
+    <form class="panel ask" id="ask">
+      <label for="q" class="sr">Befehl an Jarvis</label>
+      <span aria-hidden="true" class="cy" style="padding-left:8px;font-size:16px">&gt;</span>
+      <input id="q" class="field" type="text" autocomplete="off" placeholder="Frag Jarvis etwas …">
+      <button type="button" class="btn cmd" id="mic" hidden aria-label="Spracheingabe" aria-pressed="false" title="Spracheingabe" ><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <button type="submit" class="btn cmd" id="send" style="font-size:14px">Senden</button>
+    </form>
+  </section>
+
+  <div class="side rise d3">
+    <section class="panel" aria-label="Kalender">
+      <div class="ph"><h2 class="head">Kalender</h2><span>SEC.B1 · HEUTE</span></div>
+      <div class="row"><span class="warn" style="flex:0 0 44px">09:30</span><span style="flex:1">Team-Sync</span></div>
+      <div class="row"><span class="cy" style="flex:0 0 44px">13:00</span><span style="flex:1">Mittag mit [NAME]</span></div>
+      <div class="row"><span class="cy" style="flex:0 0 44px">17:15</span><span style="flex:1">Training</span></div>
+    </section>
+    <section class="panel" aria-label="Aufgaben" style="gap:6px">
+      <div class="ph"><h2 class="head">Aufgaben</h2><span>SEC.B2 · <span id="open">0</span> OFFEN</span></div>
+      <div id="tasks" style="display:flex;flex-direction:column;gap:2px"></div>
+    </section>
+    <section class="panel" aria-label="Wetter">
+      <div class="ph"><h2 class="head">Wetter</h2><span>SEC.B3 · [ORT]</span></div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true" style="flex:0 0 48px;filter:drop-shadow(0 0 5px rgba(63,232,255,.7))">
+          <path class="rg" stroke-width="1.6" d="M14 30a8 8 0 0 1 1-16 11 11 0 0 1 21 3 6.5 6.5 0 0 1-1 13z"/>
+          <path class="rg" stroke-width="1.6" d="M17 36l-2 5M25 36l-2 5M33 36l-2 5"/>
+        </svg>
+        <div style="display:flex;flex-direction:column"><span class="glow cy" style="font-size:30px;font-weight:300;line-height:1">7°C</span><span>Leichter Regen</span></div>
+        <div class="dim" style="margin-left:auto;display:flex;flex-direction:column;gap:2px;font-size:11px;text-align:right"><span>FEUCHTE 82 %</span><span>WIND 14 KM/H</span><span class="warn">REGEN 70 %</span></div>
+      </div>
+    </section>
+    <section class="panel" aria-label="Nachrichten" style="gap:6px">
+      <div class="ph"><h2 class="head">Nachrichten</h2><span>SEC.B4 · FEED</span></div>
+      <div class="row"><span class="cy">01</span><span>[SCHLAGZEILE AUS DEINER QUELLE]</span></div>
+      <div class="row"><span class="cy">02</span><span>[SCHLAGZEILE AUS DEINER QUELLE]</span></div>
+      <div class="row"><span class="cy">03</span><span>[SCHLAGZEILE AUS DEINER QUELLE]</span></div>
+    </section>
+  </div>
+</main>
+
+<footer class="panel bottom rise d4">
+  <div style="display:flex;align-items:baseline;gap:6px"><span id="time" class="glow cy" style="font-size:34px;font-weight:300;letter-spacing:.06em">--:--</span><span id="sec" class="dim" style="font-size:16px">:--</span></div>
+  <div style="display:flex;flex-direction:column;gap:1px"><span id="date" class="head" style="font-size:15px"></span><span id="zone" class="dim" style="font-size:10px"></span></div>
+  <div class="cmds" id="cmds"></div>
+</footer>
+
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var hud = $('hud');
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var started = Date.now();
+
+  // --- Wellenform -----------------------------------------------------------
+  var wave = $('wave');
+  for (var i = 0; i < 48; i++) {
+    var env = Math.sin((i / 47) * Math.PI);
+    var b = document.createElement('span');
+    b.className = 'bar';
+    b.style.height = (10 + Math.round(env * (22 + ((i * 37) % 23)))) + 'px';
+    b.style.animationDuration = (0.32 + ((i * 53) % 40) / 100) + 's';
+    b.style.animationDelay = '-' + (((i * 29) % 90) / 100) + 's';
+    wave.appendChild(b);
+  }
+
+  // --- Systemanzeigen (simulierte Werte) -----------------------------------
+  var C = 251.3;
+  var gauges = [
+    { key: 'cpu', label: 'CPU', sub: 'Prozessorlast', code: 'CORE.07', v: 34 },
+    { key: 'mem', label: 'Speicher', sub: 'Arbeitsspeicher belegt', code: 'MEM.02', v: 84 },
+    { key: 'net', label: 'Netzwerk', sub: 'Durchsatz', code: 'NET.11', v: 22 }
+  ];
+  $('gauges').innerHTML = gauges.map(function (g) {
+    return '<div class="gauge row"><div class="gbox"><svg viewBox="0 0 100 100" width="104" height="104" aria-hidden="true">' +
+      '<circle class="g-ticks" cx="50" cy="50" r="47"/><circle class="g-track" cx="50" cy="50" r="40"/>' +
+      '<circle class="g-val" id="gv-' + g.key + '" cx="50" cy="50" r="40"/><circle class="g-inner" cx="50" cy="50" r="31"/></svg>' +
+      '<div class="gnum"><b id="gn-' + g.key + '"></b><span class="dim" style="font-size:9px">%</span></div></div>' +
+      '<div class="ginfo"><span class="head">' + g.label + '</span><span class="dim">' + g.sub + '</span><span id="gs-' + g.key + '"></span></div></div>';
+  }).join('');
+  function drawGauges() {
+    gauges.forEach(function (g) {
+      var hot = g.v >= 80, col = hot ? '#ffb347' : '#3fe8ff';
+      var ring = $('gv-' + g.key);
+      ring.style.stroke = col;
+      ring.style.strokeDasharray = ((g.v / 100) * C).toFixed(1) + ' ' + C;
+      $('gn-' + g.key).textContent = g.v;
+      $('gn-' + g.key).style.color = col;
+      $('gs-' + g.key).textContent = g.code + ' · ' + (hot ? 'ERHÖHT' : 'NOMINAL');
+      $('gs-' + g.key).style.color = col;
+    });
+  }
+  drawGauges();
+
+  // --- Aufgaben --------------------------------------------------------------
+  var tasks = [
+    { label: 'Wochenplan prüfen', code: 'T-01', done: true },
+    { label: 'E-Mails beantworten', code: 'T-02', done: false },
+    { label: 'Einkaufsliste ergänzen', code: 'T-03', done: false }
+  ];
+  function openTasks() { return tasks.filter(function (t) { return !t.done; }); }
+  function drawTasks() {
+    var box = $('tasks');
+    box.innerHTML = '';
+    tasks.forEach(function (t) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn task row';
+      btn.setAttribute('aria-pressed', String(t.done));
+      btn.innerHTML = '<i aria-hidden="true"></i><span></span><small></small>';
+      btn.children[1].textContent = t.label;
+      btn.children[2].textContent = t.code;
+      btn.onclick = function () { t.done = !t.done; drawTasks(); };
+      box.appendChild(btn);
+    });
+    $('open').textContent = openTasks().length;
+  }
+  drawTasks();
+
+  // --- Uhr -------------------------------------------------------------------
+  try { $('zone').textContent = Intl.DateTimeFormat().resolvedOptions().timeZone.toUpperCase(); } catch (e) {}
+  var n = 0;
+  function tick() {
+    var now = new Date();
+    $('time').textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    $('sec').textContent = ':' + pad(now.getSeconds());
+    $('date').textContent = now.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    var s = Math.floor((Date.now() - started) / 1000);
+    $('session').textContent = pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
+    if (++n % 2 === 0) {
+      gauges.forEach(function (g) { g.v = Math.max(6, Math.min(97, Math.round(g.v + (Math.random() - 0.5) * 12))); });
+      drawGauges();
+    }
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  // --- Sprechen ------------------------------------------------------------
+  // Ein einziges Audio-Element: nach dem ersten Tipp darf der Browser es auch später abspielen.
+  var player = new Audio();
+  var SILENT = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+  var unlocked = false;
+  function unlockAudio() {
+    if (unlocked) return;
+    unlocked = true;
+    try { player.src = SILENT; var p = player.play(); if (p && p.catch) p.catch(function () { unlocked = false; }); } catch (e) { unlocked = false; }
+  }
+  var currentUrl = null, speakId = 0;
+  function setSpeaking(on) {
+    hud.classList.toggle('speaking', on);
+    $('stateLabel').textContent = on ? 'SPRICHT' : 'BEREIT';
+    $('voiceState').textContent = on ? 'AKTIV' : 'STANDBY';
+  }
+  function setThinking(on) {
+    hud.classList.toggle('thinking', on);
+    if (on) $('stateLabel').textContent = 'DENKT …';
+  }
+  function show(text, isError) {
+    var r = $('reply');
+    r.textContent = text;
+    r.className = isError ? 'warn' : 'glow';
+  }
+  function friendly(err) {
+    var m = err && err.message;
+    return m && m !== 'Failed to fetch' && !/NetworkError|Load failed/.test(m) ? m : 'Server nicht erreichbar. Läuft „node server.js“ noch?';
+  }
+  function stopAudio() {
+    player.pause();
+    player.onplay = player.onended = player.onerror = null;
+    if (currentUrl) { URL.revokeObjectURL(currentUrl); currentUrl = null; }
+    setSpeaking(false);
+  }
+  // Gibt ein Promise zurück, das endet, sobald das Audio fertig ist (oder fehlschlägt).
+  function speak(text, keepText) {
+    text = (text || '').trim();
+    if (!text) return Promise.resolve();
+    stopAudio();
+    var myId = ++speakId;
+    show(text, false);
+    $('stateLabel').textContent = 'ERZEUGE STIMME …';
+    return fetch('/api/speak', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) })
+      .then(function (res) {
+        if (!res.ok) return res.json().then(function (j) { throw new Error(j.error || 'Fehler ' + res.status); });
+        return res.blob();
+      })
+      .then(function (blob) {
+        if (myId !== speakId) return;
+        currentUrl = URL.createObjectURL(blob);
+        return new Promise(function (resolve, reject) {
+          player.onplay = function () { setSpeaking(true); };
+          player.onended = function () { stopAudio(); resolve(); };
+          player.onerror = function () { stopAudio(); reject(new Error('Die Audiodatei konnte nicht abgespielt werden.')); };
+          player.src = currentUrl;
+          var p = player.play();
+          if (p && p.catch) p.catch(function () { stopAudio(); reject(new Error('Der Browser hat die Wiedergabe blockiert. Tippe einmal ins Fenster und frage erneut.')); });
+        });
+      })
+      .catch(function (err) {
+        if (myId !== speakId) return;
+        stopAudio();
+        var msg = friendly(err);
+        // Bei Fragen bleibt die Antwort als Text stehen, der Fehler wird darunter gezeigt.
+        show(keepText ? text + '\n\n[Stimme: ' + msg + ']' : msg, !keepText);
+      });
+  }
+
+  // --- Fragen an Jarvis (Anthropic über /api/chat) -------------------------
+  var history = [];        // letzte ca. 10 Nachrichten
+  var busy = false;
+  var chatReady = true;
+  function pushHistory(role, content) {
+    history.push({ role: role, content: content });
+    if (history.length > 10) history = history.slice(-10);
+  }
+  function context() {
+    return {
+      now: new Date().toLocaleString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) +
+        (function () { try { return ' (' + Intl.DateTimeFormat().resolvedOptions().timeZone + ')'; } catch (e) { return ''; } })(),
+      tasks: tasks.map(function (t) { return { label: t.label, done: t.done }; })
+    };
+  }
+  function setBusy(on) {
+    busy = on;
+    $('send').disabled = on;
+    $('q').disabled = on;
+    if (mic) mic.disabled = on;
+  }
+  function ask(question) {
+    question = (question || '').trim();
+    if (!question || busy) return;
+    unlockAudio();
+    stopAudio();
+    speakId++;
+    setBusy(true);
+    setThinking(true);
+    show('…', false);
+    var sent = history.slice();
+    return fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: question, history: sent, context: context() }) })
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (j) {
+          if (!res.ok) throw new Error(j.error || 'Fehler ' + res.status);
+          return j.reply;
+        });
+      })
+      .then(function (reply) {
+        pushHistory('user', question);
+        pushHistory('assistant', reply);
+        setThinking(false);
+        setBusy(false);
+        return speak(reply, true);
+      })
+      .catch(function (err) {
+        setThinking(false);
+        setBusy(false);
+        setSpeaking(false);
+        show(friendly(err), true);
+      });
+  }
+
+  $('ask').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = $('q');
+    var text = q.value;
+    q.value = '';
+    ask(text);
+  });
+
+  // --- Spracheingabe (Web Speech API) ---------------------------------------
+  var mic = $('mic');
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SR) {
+    mic.hidden = false;
+    var rec = null, listening = false, gotResult = false;
+    var micErrors = {
+      'not-allowed': 'Der Zugriff auf das Mikrofon wurde verweigert. Erlaube ihn in den Browser-Einstellungen.',
+      'service-not-allowed': 'Die Spracherkennung ist in diesem Browser nicht erlaubt.',
+      'no-speech': 'Ich habe nichts gehört. Tippe das Mikrofon an und sprich noch einmal.',
+      'audio-capture': 'Es wurde kein Mikrofon gefunden.',
+      'network': 'Die Spracherkennung braucht eine Internetverbindung.',
+      'language-not-supported': 'Deutsch wird von der Spracherkennung dieses Browsers nicht unterstützt.'
+    };
+    var endListening = function () {
+      listening = false;
+      mic.setAttribute('aria-pressed', 'false');
+      hud.classList.remove('thinking');
+    };
+    mic.addEventListener('click', function () {
+      if (busy) return;
+      if (listening && rec) { rec.stop(); return; }
+      unlockAudio();
+      stopAudio();
+      rec = new SR();
+      rec.lang = 'de-DE';
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+      rec.continuous = false;
+      gotResult = false;
+      rec.onstart = function () {
+        listening = true;
+        mic.setAttribute('aria-pressed', 'true');
+        $('stateLabel').textContent = 'HÖRT ZU …';
+      };
+      rec.onresult = function (ev) {
+        var txt = '', fin = false;
+        for (var i = 0; i < ev.results.length; i++) { txt += ev.results[i][0].transcript; if (ev.results[i].isFinal) fin = true; }
+        $('q').value = txt;
+        if (fin && txt.trim()) { gotResult = true; $('q').value = ''; endListening(); ask(txt); }
+      };
+      rec.onerror = function (ev) {
+        gotResult = true; // Fehler wurde schon gemeldet
+        endListening();
+        $('stateLabel').textContent = 'BEREIT';
+        if (ev.error !== 'aborted') show(micErrors[ev.error] || 'Die Spracheingabe ist fehlgeschlagen (' + ev.error + ').', true);
+      };
+      rec.onend = function () {
+        var hadText = !gotResult && $('q').value.trim();
+        endListening();
+        if (!busy && !gotResult) $('stateLabel').textContent = 'BEREIT';
+        if (hadText) { var t = $('q').value; $('q').value = ''; ask(t); }
+      };
+      try { rec.start(); } catch (e) { endListening(); show('Die Spracheingabe konnte nicht gestartet werden.', true); }
+    });
+  }
+
+  // --- Schnellbefehle ------------------------------------------------------
+  function timeText() { var d = new Date(); return 'Es ist ' + d.getHours() + ' Uhr' + (d.getMinutes() ? ' ' + d.getMinutes() : '') + '.'; }
+  function taskText() {
+    var o = openTasks();
+    if (!o.length) return 'Alle Aufgaben sind erledigt.';
+    return 'Du hast ' + (o.length === 1 ? 'eine offene Aufgabe' : o.length + ' offene Aufgaben') + ': ' + o.map(function (t) { return t.label; }).join(', ') + '.';
+  }
+  var timer = null;
+  var commands = [
+    { label: 'Begrüßung', run: function () { speak('Hallo. Jarvis ist online und bereit.'); } },
+    { label: 'Uhrzeit', run: function () { speak(timeText()); } },
+    { label: 'Offene Aufgaben', run: function () { speak(taskText()); } },
+    { label: 'Tagesbriefing', run: function () {
+        var d = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+        speak('Heute ist ' + d + '. ' + timeText() + ' ' + taskText());
+      } },
+    { label: 'Timer 10 Min', run: function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () { speak('Der Timer ist abgelaufen.'); }, 10 * 60 * 1000);
+        speak('Timer auf zehn Minuten gestellt.');
+      } }
+  ];
+  commands.forEach(function (c) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn cmd';
+    b.textContent = c.label;
+    b.onclick = function () { unlockAudio(); c.run(); };
+    $('cmds').appendChild(b);
+  });
+
+  // --- Status der Stimme ----------------------------------------------------
+  fetch('/api/status').then(function (r) { return r.json(); }).then(function (j) {
+    var el = $('backend');
+    el.textContent = j.keySet ? 'KEY GELADEN' : 'KEY FEHLT';
+    el.className = j.keySet ? 'cy' : 'warn';
+    if (!j.keySet) show('Kein ElevenLabs-Key gefunden. Trage ihn in einstellungen.txt ein und starte den Server neu.', true);
+    else if (!j.chatKeySet) show('Kein Anthropic-Key gefunden. Trage ANTHROPIC_API_KEY in einstellungen.txt ein und starte den Server neu, damit Jarvis Fragen beantworten kann.', true);
+  }).catch(function () {
+    $('backend').textContent = 'SERVER FEHLT';
+    $('backend').className = 'warn';
+  });
+})();
+</script>
+</body>
+</html>

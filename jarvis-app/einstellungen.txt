@@ -1,0 +1,21 @@
+# JARVIS – Einstellungen
+# Trage deinen ElevenLabs-Key hinter dem Gleichheitszeichen ein (ohne Leerzeichen, ohne Anführungszeichen).
+# Diese Datei niemals weitergeben oder hochladen.
+
+ELEVENLABS_API_KEY=HIER_DEINEN_KEY_EINFUEGEN
+
+# Stimme: Standardstimme aus der ElevenLabs-Dokumentation.
+# Eine eigene Stimme findest du bei ElevenLabs unter "Voices" -> Stimme -> "Copy voice ID".
+VOICE_ID=JBFqnCBsd6RMkjVDRZzb
+
+# Sprachmodell: eleven_multilingual_v2 spricht Deutsch.
+MODEL_ID=eleven_multilingual_v2
+
+# Anthropic-Key für die Antworten von Jarvis (https://console.anthropic.com -> API Keys).
+ANTHROPIC_API_KEY=HIER_DEINEN_ANTHROPIC_KEY_EINFUEGEN
+
+# Claude-Modell für die Antworten. claude-haiku-5-5 ist schnell und günstig.
+# (Nicht verwechseln mit MODEL_ID oben: das ist das Sprachmodell von ElevenLabs.)
+MODEL=claude-haiku-5-5
+
+PORT=3000
