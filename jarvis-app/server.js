@@ -5,6 +5,7 @@
 // Die API-Keys bleiben hier auf deinem Rechner und landen nie im Browser.
 
 const http = require('http');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
@@ -27,7 +28,13 @@ const cfg = loadSettings();
 const API_KEY = process.env.ELEVENLABS_API_KEY || cfg.ELEVENLABS_API_KEY || '';
 const VOICE_ID = cfg.VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
 const MODEL_ID = cfg.MODEL_ID || 'eleven_multilingual_v2';
-const PORT = Number(cfg.PORT) || 3000;
+// Hosting-Dienste (Render, Railway …) geben den Port als Umgebungsvariable PORT vor.
+const PORT = Number(process.env.PORT) || Number(cfg.PORT) || 3000;
+const ACCESS_CODE = process.env.ACCESS_CODE || cfg.ACCESS_CODE || '';
+const codeSet = ACCESS_CODE !== '' && !ACCESS_CODE.includes('HIER_');
+// Lokal nur auf diesem Rechner erreichbar. Bei einem Hosting-Dienst (PORT gesetzt) oder mit HOST=0.0.0.0 von außen.
+const HOST = process.env.HOST || cfg.HOST || (process.env.PORT ? '0.0.0.0' : '127.0.0.1');
+const isLoopback = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
 const MAX_CHARS = 600; // schützt dein Zeichen-Kontingent vor versehentlich langen Texten
 
 const keySet = API_KEY !== '' && !API_KEY.includes('HIER_');
@@ -42,7 +49,7 @@ const ELEVEN_BASE = process.env.JARVIS_TEST_ELEVEN_URL || 'https://api.elevenlab
 // Entfernt Schlüssel aus Text, bevor er geloggt wird.
 function redact(t) {
   let out = String(t);
-  [API_KEY, ANTHROPIC_KEY].forEach((k) => { if (k && k.length > 6) out = out.split(k).join('[KEY]'); });
+  [API_KEY, ANTHROPIC_KEY, ACCESS_CODE].forEach((k) => { if (k && k.length > 6) out = out.split(k).join('[KEY]'); });
   return out;
 }
 
@@ -208,8 +215,101 @@ async function chat(req, res) {
   sendJson(res, 200, { reply: text });
 }
 
+// --- Zugangscode ---------------------------------------------------------------
+// Ist ACCESS_CODE gesetzt, kommt man nur mit dem Code an Dashboard und API.
+// Nach richtiger Eingabe merkt sich der Browser das 30 Tage per Cookie (HttpOnly).
+const COOKIE = 'jarvis_auth';
+const hmac = (v) => crypto.createHmac('sha256', ACCESS_CODE).update(v).digest();
+const SESSION = codeSet ? hmac('jarvis-session-v1').toString('hex') : '';
+const safeEqual = (a, b) => crypto.timingSafeEqual(a, b);
+
+function isAuthed(req) {
+  if (!codeSet) return true;
+  const m = (req.headers.cookie || '').split(';').map((c) => c.trim()).find((c) => c.startsWith(COOKIE + '='));
+  if (!m) return false;
+  const given = Buffer.from(m.slice(COOKIE.length + 1));
+  const want = Buffer.from(SESSION);
+  return given.length === want.length && safeEqual(given, want);
+}
+
+// Bremse gegen Raten: 5 falsche Versuche pro IP, dann 15 Minuten Pause.
+const fails = new Map();
+const FAIL_MAX = 5, FAIL_WINDOW = 15 * 60 * 1000;
+function clientIp(req) {
+  // Hinter einem Hosting-Proxy hängt der Proxy die echte Adresse hinten an.
+  const xf = String(req.headers['x-forwarded-for'] || '').split(',').map((x) => x.trim()).filter(Boolean);
+  return xf.length ? xf[xf.length - 1] : req.socket.remoteAddress || '?';
+}
+function blocked(ip) {
+  const f = fails.get(ip);
+  if (!f) return false;
+  if (Date.now() - f.first > FAIL_WINDOW) { fails.delete(ip); return false; }
+  return f.count >= FAIL_MAX;
+}
+function noteFail(ip) {
+  const f = fails.get(ip);
+  if (!f || Date.now() - f.first > FAIL_WINDOW) fails.set(ip, { count: 1, first: Date.now() });
+  else f.count++;
+  if (fails.size > 1000) fails.clear();
+}
+
+function loginPage(message) {
+  const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  return '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>JARVIS · Zugang</title><style>' +
+    'body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 38%,#082440 0%,#04101f 45%,#01040a 100%);color:#d9f8ff;font:14px/1.5 ui-monospace,Menlo,Consolas,monospace}' +
+    'form{width:min(92vw,360px);padding:24px;border:1px solid rgba(63,232,255,.28);background:rgba(4,16,30,.7);display:flex;flex-direction:column;gap:14px;box-shadow:0 0 30px rgba(63,232,255,.15)}' +
+    'b{letter-spacing:.42em;font-size:24px;color:#3fe8ff;text-shadow:0 0 12px rgba(63,232,255,.6)}small{color:#7fb6c6;letter-spacing:.1em}' +
+    'input,button{font:inherit;font-size:16px;height:46px;padding:0 12px;color:#d9f8ff;background:rgba(2,10,20,.7);border:1px solid rgba(63,232,255,.28)}' +
+    'input:focus,button:hover{outline:none;border-color:#3fe8ff;box-shadow:0 0 18px rgba(63,232,255,.45)}' +
+    'button{cursor:pointer;color:#3fe8ff;letter-spacing:.14em;background:rgba(63,232,255,.08)}p{margin:0;color:#ffb347}' +
+    '</style></head><body><form method="post" action="/login"><b>JARVIS</b><small>ZUGANG GESCHÜTZT</small>' +
+    (message ? '<p>' + esc(message) + '</p>' : '') +
+    '<label for="c" style="position:absolute;left:-9999px">Zugangscode</label>' +
+    '<input id="c" name="code" type="password" autocomplete="current-password" placeholder="Zugangscode" autofocus required>' +
+    '<button type="submit">ENTSPERREN</button></form></body></html>';
+}
+
+async function login(req, res) {
+  const ip = clientIp(req);
+  if (blocked(ip)) {
+    res.writeHead(429, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(loginPage('Zu viele falsche Versuche. Bitte warte 15 Minuten.'));
+  }
+  let code = '';
+  try {
+    let data = '';
+    await new Promise((resolve, reject) => {
+      req.on('data', (c) => { data += c; if (data.length > 2000) { reject(new Error('zu groß')); req.destroy(); } });
+      req.on('end', resolve); req.on('error', reject);
+    });
+    code = new URLSearchParams(data).get('code') || '';
+  } catch (e) { return; }
+  if (safeEqual(hmac('login:' + code), hmac('login:' + ACCESS_CODE))) {
+    fails.delete(ip);
+    const secure = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https' ? '; Secure' : '';
+    res.writeHead(303, { Location: '/', 'Cache-Control': 'no-store',
+      'Set-Cookie': COOKIE + '=' + SESSION + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000' + secure });
+    return res.end();
+  }
+  noteFail(ip);
+  res.writeHead(401, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(loginPage('Der Zugangscode ist falsch.'));
+}
+
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  if (req.method === 'GET' && url === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('ok'); }
+  if (codeSet && req.method === 'POST' && url === '/login') {
+    return login(req, res).catch((e) => { console.error(redact(e && e.stack || e)); if (!res.headersSent) { res.writeHead(500); res.end(); } });
+  }
+  if (!isAuthed(req)) {
+    if (url.startsWith('/api/')) return sendJson(res, 401, { error: 'Zugangscode erforderlich. Bitte lade die Seite neu und gib den Code ein.' });
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(loginPage(''));
+  }
   if (req.method === 'GET' && (url === '/' || url === '/index.html')) {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
     return fs.createReadStream(path.join(__dirname, 'index.html')).pipe(res);
@@ -232,10 +332,18 @@ const server = http.createServer((req, res) => {
   sendJson(res, 404, { error: 'Nicht gefunden.' });
 });
 
-// 127.0.0.1 = nur von diesem Rechner aus erreichbar.
-server.listen(PORT, '127.0.0.1', () => {
+// Ohne Zugangscode nur auf diesem Rechner erreichbar. Von außen wird ohne Code gar nicht gestartet.
+if (!isLoopback && !codeSet) {
+  console.error('');
+  console.error('  ABBRUCH: Der Server soll von außen erreichbar sein (HOST ' + HOST + '), aber es ist kein Zugangscode gesetzt.');
+  console.error('  Trage ACCESS_CODE in einstellungen.txt ein oder setze die Umgebungsvariable ACCESS_CODE.');
+  console.error('');
+  process.exit(1);
+}
+server.listen(PORT, HOST, () => {
   console.log('');
-  console.log('  JARVIS läuft:  http://localhost:' + PORT);
+  console.log('  JARVIS läuft:  http://localhost:' + PORT + (isLoopback ? '' : '  (erreichbar über ' + HOST + ')'));
+  console.log('  Zugangscode:    ' + (codeSet ? 'aktiv' : 'aus (nur dieser Rechner)'));
   console.log('  ElevenLabs-Key: ' + (keySet ? 'gefunden' : 'FEHLT – bitte in einstellungen.txt eintragen'));
   console.log('  Anthropic-Key:  ' + (chatKeySet ? 'gefunden (Modell ' + CLAUDE_MODEL + ')' : 'FEHLT – bitte in einstellungen.txt eintragen'));
   console.log('  Beenden mit Strg + C');

@@ -18,4 +18,8 @@ ANTHROPIC_API_KEY=HIER_DEINEN_ANTHROPIC_KEY_EINFUEGEN
 # (Nicht verwechseln mit MODEL_ID oben: das ist das Sprachmodell von ElevenLabs.)
 MODEL=claude-haiku-5-5
 
+# Zugangscode: schützt Dashboard und Keys, wenn Jarvis im Internet läuft. Lokal darf er leer bleiben.
+# Wähle mindestens 12 Zeichen. Auf einem Hosting-Dienst setzt du ihn besser als Umgebungsvariable ACCESS_CODE.
+ACCESS_CODE=HIER_DEINEN_ZUGANGSCODE_FESTLEGEN
+
 PORT=3000
