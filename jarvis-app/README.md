@@ -52,6 +52,7 @@ aber die Mikrofon-Taste nicht, weil Safari dafür HTTPS verlangt.
 | `ANTHROPIC_API_KEY` | Key für die Antworten | Platzhalter |
 | `MODEL` | Claude-Modell | `claude-haiku-5-5` (schnell) |
 | `ELEVENLABS_API_KEY` | Key für die Stimme | Platzhalter |
+| `WETTER_ORT` | Standardort für Wetterfragen, z. B. `Hamburg` | leer |
 | `VOICE_ID` / `MODEL_ID` | Stimme und ElevenLabs-Modell | siehe Datei |
 | `ACCESS_CODE` | Zugangscode, Pflicht bei Betrieb im Internet | Platzhalter (aus) |
 | `HOST` | `127.0.0.1` = nur dieser Rechner, `0.0.0.0` = von außen | `127.0.0.1` |
@@ -69,7 +70,11 @@ Nach jeder Änderung den Server neu starten.
   Der Kern pulsiert nur, solange das Audio läuft.
 - Jarvis bekommt bei jeder Frage Datum, Uhrzeit, deine Aufgaben aus dem Dashboard und die letzten
   etwa 10 Nachrichten des Gesprächs. Der Verlauf liegt nur im Browser und ist nach einem Neuladen weg.
-- Kalender, Wetter und Nachrichten im Dashboard sind Platzhalter. Jarvis kennt sie nicht und sagt das auch.
+- **Wetter:** Jarvis kann das aktuelle Wetter und die Vorhersage für drei Tage abrufen (Open-Meteo, kein Key).
+  Trage deinen Ort bei `WETTER_ORT` ein (auf Render als Umgebungsvariable). Fragen wie „Brauche ich morgen einen Regenschirm?“
+  oder „Wie ist das Wetter in München?“ klappen dann. Dabei geht nur der Ortsname an Open-Meteo.
+- Die Wetter-Kachel im Dashboard bleibt ein Platzhalter. Kalender und Nachrichten im Dashboard sind ebenfalls Platzhalter,
+  Jarvis hat darauf keinen Zugriff und sagt das auch. E-Mails kann er nicht lesen.
 - Die Schnellbefehle (Uhrzeit, Aufgaben …) werden weiter direkt gesprochen, ohne Anthropic.
 
 ## Fehlermeldungen

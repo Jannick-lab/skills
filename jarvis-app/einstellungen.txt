@@ -22,4 +22,8 @@ MODEL=claude-haiku-5-5
 # Wähle mindestens 12 Zeichen. Auf einem Hosting-Dienst setzt du ihn besser als Umgebungsvariable ACCESS_CODE.
 ACCESS_CODE=HIER_DEINEN_ZUGANGSCODE_FESTLEGEN
 
+# Standardort für Wetterfragen, z. B. Hamburg. Jarvis versteht auch andere Orte, wenn du sie nennst.
+# Das Wetter kommt von Open-Meteo (kein Key nötig). Der Ortsname wird dorthin geschickt.
+WETTER_ORT=
+
 PORT=3000

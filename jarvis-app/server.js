@@ -44,6 +44,9 @@ const CLAUDE_MODEL = cfg.MODEL || 'claude-haiku-5-5';
 const chatKeySet = ANTHROPIC_KEY !== '' && !ANTHROPIC_KEY.includes('HIER_');
 // Nur für Tests mit einem Mock-Server (Umgebungsvariablen, nicht in einstellungen.txt).
 const ANTHROPIC_URL = process.env.JARVIS_TEST_ANTHROPIC_URL || 'https://api.anthropic.com/v1/messages';
+const WETTER_ORT = (process.env.WETTER_ORT || cfg.WETTER_ORT || '').trim();
+const GEO_URL = process.env.JARVIS_TEST_GEO_URL || 'https://geocoding-api.open-meteo.com/v1/search';
+const WEATHER_URL = process.env.JARVIS_TEST_WEATHER_URL || 'https://api.open-meteo.com/v1/forecast';
 const ELEVEN_BASE = process.env.JARVIS_TEST_ELEVEN_URL || 'https://api.elevenlabs.io';
 
 // Entfernt Schlüssel aus Text, bevor er geloggt wird.
@@ -134,7 +137,9 @@ function systemPrompt(ctx) {
     'Datum und Uhrzeit: ' + now,
     'Offene Aufgaben: ' + (open.length ? '\n' + open.join('\n') : 'keine'),
     'Erledigte Aufgaben: ' + (done.length ? '\n' + done.join('\n') : 'keine'),
-    'Du hast keinen Zugriff auf Kalender, E-Mails, Nachrichten oder Wetter.',
+    'Du hast ein Werkzeug für das aktuelle Wetter und die Vorhersage der nächsten Tage. Nutze es bei jeder Frage zum Wetter und gib nur Werte wieder, die es dir liefert.',
+    WETTER_ORT ? 'Standardort für Wetterfragen: ' + WETTER_ORT + '. Nenne der Nutzer einen anderen Ort, nimm diesen.' : 'Es ist kein Standardort eingestellt. Nennt der Nutzer keinen Ort, frage kurz nach.',
+    'Du hast keinen Zugriff auf Kalender, E-Mails oder Nachrichten.',
   ].join('\n');
 }
 
@@ -160,6 +165,88 @@ function cleanReply(t) {
   return String(t).replace(/(^|\n)\s*[-•]\s+/g, '$1').replace(/[*_`#>]+/g, '').replace(/\s*\n+\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
 }
 
+
+// --- Werkzeug: Wetter (Open-Meteo, ohne Key) -----------------------------------
+const WMO = {
+  0: 'klar', 1: 'überwiegend klar', 2: 'teils bewölkt', 3: 'bedeckt', 45: 'Nebel', 48: 'Reifnebel',
+  51: 'leichter Nieselregen', 53: 'Nieselregen', 55: 'starker Nieselregen', 56: 'gefrierender Nieselregen', 57: 'starker gefrierender Nieselregen',
+  61: 'leichter Regen', 63: 'Regen', 65: 'starker Regen', 66: 'gefrierender Regen', 67: 'starker gefrierender Regen',
+  71: 'leichter Schneefall', 73: 'Schneefall', 75: 'starker Schneefall', 77: 'Schneegriesel',
+  80: 'leichte Regenschauer', 81: 'Regenschauer', 82: 'heftige Regenschauer', 85: 'leichte Schneeschauer', 86: 'Schneeschauer',
+  95: 'Gewitter', 96: 'Gewitter mit Hagel', 99: 'Gewitter mit starkem Hagel',
+};
+const wcache = new Map(); // Ort -> { t, data }
+const WEATHER_TTL = 10 * 60 * 1000;
+
+async function getWeather(place) {
+  const name = String(place || WETTER_ORT || '').trim().slice(0, 80);
+  if (!name) throw new Error('Kein Ort angegeben und kein Standardort (WETTER_ORT) eingestellt.');
+  const key = name.toLowerCase();
+  const hit = wcache.get(key);
+  if (hit && Date.now() - hit.t < WEATHER_TTL) return hit.data;
+
+  let g;
+  try {
+    const gr = await fetch(GEO_URL + '?name=' + encodeURIComponent(name) + '&count=1&language=de&format=json', { signal: AbortSignal.timeout(8000) });
+    if (!gr.ok) throw new Error('geo ' + gr.status);
+    g = await gr.json();
+  } catch (e) { throw new Error('Der Wetterdienst ist gerade nicht erreichbar.'); }
+  const loc = g && g.results && g.results[0];
+  if (!loc) throw new Error('Der Ort „' + name + '“ wurde nicht gefunden.');
+
+  let w;
+  try {
+    const q = 'latitude=' + loc.latitude + '&longitude=' + loc.longitude +
+      '&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m' +
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max' +
+      '&timezone=auto&forecast_days=3&wind_speed_unit=kmh';
+    const wr = await fetch(WEATHER_URL + '?' + q, { signal: AbortSignal.timeout(8000) });
+    if (!wr.ok) throw new Error('weather ' + wr.status);
+    w = await wr.json();
+  } catch (e) { throw new Error('Der Wetterdienst ist gerade nicht erreichbar.'); }
+
+  const c = w.current || {}, d = w.daily || {};
+  const days = (d.time || []).map((t, i) => ({
+    datum: t,
+    wetter: WMO[d.weather_code && d.weather_code[i]] || 'unbekannt',
+    min_c: d.temperature_2m_min && d.temperature_2m_min[i],
+    max_c: d.temperature_2m_max && d.temperature_2m_max[i],
+    regenwahrscheinlichkeit_prozent: d.precipitation_probability_max && d.precipitation_probability_max[i],
+  }));
+  const data = {
+    ort: loc.name + (loc.country ? ', ' + loc.country : ''),
+    jetzt: {
+      wetter: WMO[c.weather_code] || 'unbekannt',
+      temperatur_c: c.temperature_2m, gefuehlt_c: c.apparent_temperature,
+      luftfeuchte_prozent: c.relative_humidity_2m, niederschlag_mm: c.precipitation,
+      wind_kmh: c.wind_speed_10m, zeit: c.time,
+    },
+    vorhersage: days,
+    quelle: 'Open-Meteo',
+  };
+  if (wcache.size > 50) wcache.clear();
+  wcache.set(key, { t: Date.now(), data });
+  return data;
+}
+
+const TOOLS = [{
+  name: 'get_weather',
+  description: 'Liefert das aktuelle Wetter und die Vorhersage für heute und die nächsten zwei Tage für einen Ort. Ohne Ortsangabe wird der Standardort des Nutzers verwendet.',
+  input_schema: { type: 'object', properties: { ort: { type: 'string', description: 'Name der Stadt, z. B. "Hamburg". Weglassen für den Standardort.' } } },
+}];
+
+async function runTool(block) {
+  try {
+    if (block.name === 'get_weather') {
+      const data = await getWeather(block.input && block.input.ort);
+      return { type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(data) };
+    }
+    return { type: 'tool_result', tool_use_id: block.id, is_error: true, content: 'Unbekanntes Werkzeug.' };
+  } catch (e) {
+    return { type: 'tool_result', tool_use_id: block.id, is_error: true, content: String(e && e.message || 'Fehler') };
+  }
+}
+
 async function chat(req, res) {
   if (!chatKeySet) {
     return sendJson(res, 500, { error: 'Kein Anthropic-API-Key gefunden. Trage ANTHROPIC_API_KEY in einstellungen.txt ein und starte den Server neu.' });
@@ -178,38 +265,48 @@ async function chat(req, res) {
     max_tokens: 300,
     system: systemPrompt((body && body.context) || {}),
     messages: buildMessages(body.history, question),
+    tools: TOOLS,
   };
 
-  let r;
-  try {
-    r = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: { 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(25000),
-    });
-  } catch (e) {
-    if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
-      return sendJson(res, 504, { error: 'Anthropic antwortet nicht rechtzeitig. Bitte versuche es gleich noch einmal.' });
-    }
-    return sendJson(res, 502, { error: 'Anthropic ist nicht erreichbar. Besteht eine Internetverbindung?' });
-  }
-
-  if (!r.ok) {
-    const detail = (await r.text()).slice(0, 400);
-    console.error('Anthropic-Fehler', r.status, redact(detail));
-    let msg = 'Anthropic meldet Fehler ' + r.status + '.';
-    if (r.status === 400 && /credit|balance/i.test(detail)) msg = 'Das Anthropic-Guthaben ist aufgebraucht. Bitte in der Anthropic Console aufladen.';
-    if (r.status === 401) msg = 'Der Anthropic-API-Key wurde abgelehnt. Bitte ANTHROPIC_API_KEY in einstellungen.txt prüfen.';
-    if (r.status === 403) msg = 'Der Anthropic-API-Key hat keine Berechtigung für diese Anfrage.';
-    if (r.status === 404) msg = 'Das Modell „' + CLAUDE_MODEL + '“ wurde nicht gefunden. Bitte MODEL in einstellungen.txt prüfen.';
-    if (r.status === 429) msg = 'Das Anfrage-Limit bei Anthropic ist erreicht. Bitte warte einen Moment.';
-    if (r.status >= 500) msg = 'Anthropic ist gerade überlastet oder gestört. Bitte versuche es gleich noch einmal.';
-    return sendJson(res, 502, { error: msg });
-  }
-
+  // Das Modell darf Werkzeuge aufrufen (höchstens 3 Runden), danach kommt die Antwort.
   let data;
-  try { data = await r.json(); } catch (e) { return sendJson(res, 502, { error: 'Die Antwort von Anthropic war unlesbar.' }); }
+  for (let round = 0; round < 4; round++) {
+    let r;
+    try {
+      r = await fetch(ANTHROPIC_URL, {
+        method: 'POST',
+        headers: { 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(25000),
+      });
+    } catch (e) {
+      if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+        return sendJson(res, 504, { error: 'Anthropic antwortet nicht rechtzeitig. Bitte versuche es gleich noch einmal.' });
+      }
+      return sendJson(res, 502, { error: 'Anthropic ist nicht erreichbar. Besteht eine Internetverbindung?' });
+    }
+
+    if (!r.ok) {
+      const detail = (await r.text()).slice(0, 400);
+      console.error('Anthropic-Fehler', r.status, redact(detail));
+      let msg = 'Anthropic meldet Fehler ' + r.status + '.';
+      if (r.status === 400 && /credit|balance/i.test(detail)) msg = 'Das Anthropic-Guthaben ist aufgebraucht. Bitte in der Anthropic Console aufladen.';
+      if (r.status === 401) msg = 'Der Anthropic-API-Key wurde abgelehnt. Bitte ANTHROPIC_API_KEY in einstellungen.txt prüfen.';
+      if (r.status === 403) msg = 'Der Anthropic-API-Key hat keine Berechtigung für diese Anfrage.';
+      if (r.status === 404) msg = 'Das Modell „' + CLAUDE_MODEL + '“ wurde nicht gefunden. Bitte MODEL in einstellungen.txt prüfen.';
+      if (r.status === 429) msg = 'Das Anfrage-Limit bei Anthropic ist erreicht. Bitte warte einen Moment.';
+      if (r.status >= 500) msg = 'Anthropic ist gerade überlastet oder gestört. Bitte versuche es gleich noch einmal.';
+      return sendJson(res, 502, { error: msg });
+    }
+
+    try { data = await r.json(); } catch (e) { return sendJson(res, 502, { error: 'Die Antwort von Anthropic war unlesbar.' }); }
+    const uses = (data.content || []).filter((b) => b && b.type === 'tool_use');
+    if (data.stop_reason !== 'tool_use' || !uses.length) break;
+    if (round === 3) { data = { content: [] }; break; }
+    payload.messages.push({ role: 'assistant', content: data.content });
+    payload.messages.push({ role: 'user', content: await Promise.all(uses.map(runTool)) });
+    payload.max_tokens = 400;
+  }
   const text = cleanReply((data.content || []).filter((b) => b && b.type === 'text').map((b) => b.text).join(' '));
   if (!text) return sendJson(res, 502, { error: 'Jarvis hat keine Antwort erhalten. Bitte formuliere die Frage anders.' });
   sendJson(res, 200, { reply: text });
