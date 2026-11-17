@@ -26,4 +26,8 @@ ACCESS_CODE=HIER_DEINEN_ZUGANGSCODE_FESTLEGEN
 # Das Wetter kommt von Open-Meteo (kein Key nötig). Der Ortsname wird dorthin geschickt.
 WETTER_ORT=
 
+# Stimme: auto = ElevenLabs, bei Fehlern spricht der Browser | elevenlabs = nur ElevenLabs | browser = nur Browser
+# (kostenlos, braucht keinen ElevenLabs-Key). Bei Sperre des kostenlosen ElevenLabs-Tarifs: browser.
+STIMME=auto
+
 PORT=3000

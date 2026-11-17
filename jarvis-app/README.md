@@ -52,6 +52,7 @@ aber die Mikrofon-Taste nicht, weil Safari dafür HTTPS verlangt.
 | `ANTHROPIC_API_KEY` | Key für die Antworten | Platzhalter |
 | `MODEL` | Claude-Modell | `claude-haiku-5-5` (schnell) |
 | `ELEVENLABS_API_KEY` | Key für die Stimme | Platzhalter |
+| `STIMME` | `auto` = ElevenLabs, bei Fehlern spricht der Browser; `elevenlabs` = nur ElevenLabs; `browser` = nur Browser | `auto` |
 | `WETTER_ORT` | Standardort für Wetterfragen, z. B. `Hamburg` | leer |
 | `VOICE_ID` / `MODEL_ID` | Stimme und ElevenLabs-Modell | siehe Datei |
 | `ACCESS_CODE` | Zugangscode, Pflicht bei Betrieb im Internet | Platzhalter (aus) |
@@ -76,6 +77,14 @@ Nach jeder Änderung den Server neu starten.
 - Die Wetter-Kachel im Dashboard bleibt ein Platzhalter. Kalender und Nachrichten im Dashboard sind ebenfalls Platzhalter,
   Jarvis hat darauf keinen Zugriff und sagt das auch. E-Mails kann er nicht lesen.
 - Die Schnellbefehle (Uhrzeit, Aufgaben …) werden weiter direkt gesprochen, ohne Anthropic.
+
+## Stimme
+
+Jarvis spricht mit ElevenLabs. Der kostenlose ElevenLabs-Tarif wird für Server im Internet (zum Beispiel Render)
+oft gesperrt („detected_unusual_activity“, HTTP 401). Dann hilft ein bezahlter ElevenLabs-Tarif oder die
+**Stimme des Browsers**: Mit `STIMME=auto` (Standard) fällt Jarvis nach einem Fehler automatisch darauf zurück
+und versucht ElevenLabs in dieser Sitzung nicht erneut. Mit `STIMME=browser` wird ElevenLabs gar nicht benutzt
+(kein ElevenLabs-Key nötig). Die Browser-Stimme klingt nüchterner und hängt vom Gerät ab.
 
 ## Fehlermeldungen
 

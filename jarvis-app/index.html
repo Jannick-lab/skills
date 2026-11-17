@@ -296,6 +296,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
   function unlockAudio() {
     if (unlocked) return;
     unlocked = true;
+    try { if (window.speechSynthesis && window.SpeechSynthesisUtterance) { var u0 = new SpeechSynthesisUtterance(' '); u0.volume = 0; window.speechSynthesis.speak(u0); } } catch (e) {}
     try { player.src = SILENT; var p = player.play(); if (p && p.catch) p.catch(function () { unlocked = false; }); } catch (e) { unlocked = false; }
   }
   var currentUrl = null, speakId = 0;
@@ -318,26 +319,25 @@ h2{margin:0;font-size:15px;color:var(--c)}
     return m && m !== 'Failed to fetch' && !/NetworkError|Load failed/.test(m) ? m : 'Server nicht erreichbar. Läuft „node server.js“ noch?';
   }
   function stopAudio() {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
     player.pause();
     player.onplay = player.onended = player.onerror = null;
     if (currentUrl) { URL.revokeObjectURL(currentUrl); currentUrl = null; }
     setSpeaking(false);
   }
-  // Gibt ein Promise zurück, das endet, sobald das Audio fertig ist (oder fehlschlägt).
-  function speak(text, keepText) {
-    text = (text || '').trim();
-    if (!text) return Promise.resolve();
-    stopAudio();
-    var myId = ++speakId;
-    show(text, false);
-    $('stateLabel').textContent = 'ERZEUGE STIMME …';
+  // Stimme: auto = ElevenLabs, bei Fehlern die Stimme des Browsers; elevenlabs = nur ElevenLabs; browser = nur Browser.
+  var voiceMode = 'auto', elevenDown = false;
+  function elevenSpeak(text) {
     return fetch('/api/speak', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) })
       .then(function (res) {
-        if (!res.ok) return res.json().then(function (j) { throw new Error(j.error || 'Fehler ' + res.status); });
+        if (!res.ok) return res.json().catch(function () { return {}; }).then(function (j) {
+          var e = new Error(j.error || 'Fehler ' + res.status);
+          e.auth = !!j.fatal; // Key oder Tarif dauerhaft abgelehnt: für diese Sitzung nicht mehr versuchen
+          throw e;
+        });
         return res.blob();
       })
       .then(function (blob) {
-        if (myId !== speakId) return;
         currentUrl = URL.createObjectURL(blob);
         return new Promise(function (resolve, reject) {
           player.onplay = function () { setSpeaking(true); };
@@ -347,12 +347,49 @@ h2{margin:0;font-size:15px;color:var(--c)}
           var p = player.play();
           if (p && p.catch) p.catch(function () { stopAudio(); reject(new Error('Der Browser hat die Wiedergabe blockiert. Tippe einmal ins Fenster und frage erneut.')); });
         });
+      });
+  }
+  function browserSpeak(text) {
+    return new Promise(function (resolve, reject) {
+      var ss = window.speechSynthesis;
+      if (!ss || !window.SpeechSynthesisUtterance) { reject(new Error('Dieser Browser hat keine Sprachausgabe.')); return; }
+      ss.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'de-DE';
+      var de = (ss.getVoices() || []).filter(function (v) { return /^de/i.test(v.lang); });
+      if (de.length) u.voice = de[0];
+      u.onstart = function () { setSpeaking(true); };
+      u.onend = function () { setSpeaking(false); resolve(); };
+      u.onerror = function (e) {
+        setSpeaking(false);
+        if (e && (e.error === 'canceled' || e.error === 'interrupted')) resolve();
+        else reject(new Error('Die Sprachausgabe des Browsers ist fehlgeschlagen.'));
+      };
+      ss.speak(u);
+    });
+  }
+  // Gibt ein Promise zurück, das endet, sobald gesprochen wurde (oder alles fehlschlägt).
+  function speak(text, keepText) {
+    text = (text || '').trim();
+    if (!text) return Promise.resolve();
+    stopAudio();
+    var myId = ++speakId;
+    show(text, false);
+    var useEleven = voiceMode !== 'browser' && !(elevenDown && voiceMode === 'auto');
+    if (useEleven) $('stateLabel').textContent = 'ERZEUGE STIMME …';
+    var first = useEleven ? elevenSpeak(text) : Promise.reject(null);
+    return first
+      .catch(function (err) {
+        if (myId !== speakId) return;
+        if (voiceMode === 'elevenlabs') throw err;
+        if (err && err.auth) elevenDown = true;
+        stopAudio();
+        return browserSpeak(text);
       })
       .catch(function (err) {
         if (myId !== speakId) return;
         stopAudio();
         var msg = friendly(err);
-        // Bei Fragen bleibt die Antwort als Text stehen, der Fehler wird darunter gezeigt.
         show(keepText ? text + '\n\n[Stimme: ' + msg + ']' : msg, !keepText);
       });
   }
@@ -510,10 +547,11 @@ h2{margin:0;font-size:15px;color:var(--c)}
   // --- Status der Stimme ----------------------------------------------------
   fetch('/api/status').then(function (r) { return r.json(); }).then(function (j) {
     var el = $('backend');
-    el.textContent = j.keySet ? 'KEY GELADEN' : 'KEY FEHLT';
-    el.className = j.keySet ? 'cy' : 'warn';
-    if (!j.keySet) show('Kein ElevenLabs-Key gefunden. Trage ihn in einstellungen.txt ein und starte den Server neu.', true);
-    else if (!j.chatKeySet) show('Kein Anthropic-Key gefunden. Trage ANTHROPIC_API_KEY in einstellungen.txt ein und starte den Server neu, damit Jarvis Fragen beantworten kann.', true);
+    voiceMode = j.voice || 'auto';
+    if (voiceMode === 'browser') { el.textContent = 'BROWSER-STIMME'; el.className = 'cy'; }
+    else { el.textContent = j.keySet ? 'KEY GELADEN' : (voiceMode === 'auto' ? 'KEY FEHLT · BROWSER' : 'KEY FEHLT'); el.className = j.keySet ? 'cy' : 'warn'; }
+    if (!j.chatKeySet) show('Kein Anthropic-Key gefunden. Trage ANTHROPIC_API_KEY in einstellungen.txt ein (bei Render: Environment) und starte den Server neu, damit Jarvis Fragen beantworten kann.', true);
+    else if (!j.keySet && voiceMode === 'elevenlabs') show('Kein ElevenLabs-Key gefunden. Trage ELEVENLABS_API_KEY ein (einstellungen.txt oder bei Render: Environment) oder setze STIMME=browser.', true);
   }).catch(function () {
     $('backend').textContent = 'SERVER FEHLT';
     $('backend').className = 'warn';

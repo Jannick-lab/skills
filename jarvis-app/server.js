@@ -44,6 +44,9 @@ const CLAUDE_MODEL = cfg.MODEL || 'claude-haiku-5-5';
 const chatKeySet = ANTHROPIC_KEY !== '' && !ANTHROPIC_KEY.includes('HIER_');
 // Nur für Tests mit einem Mock-Server (Umgebungsvariablen, nicht in einstellungen.txt).
 const ANTHROPIC_URL = process.env.JARVIS_TEST_ANTHROPIC_URL || 'https://api.anthropic.com/v1/messages';
+// STIMME: auto = ElevenLabs, bei Fehlern die Stimme des Browsers | elevenlabs = nur ElevenLabs | browser = nur Browser
+const VOICE_RAW = String(process.env.STIMME || cfg.STIMME || 'auto').trim().toLowerCase();
+const VOICE_MODE = ['auto', 'elevenlabs', 'browser'].includes(VOICE_RAW) ? VOICE_RAW : 'auto';
 const WETTER_ORT = (process.env.WETTER_ORT || cfg.WETTER_ORT || '').trim();
 const GEO_URL = process.env.JARVIS_TEST_GEO_URL || 'https://geocoding-api.open-meteo.com/v1/search';
 const WEATHER_URL = process.env.JARVIS_TEST_WEATHER_URL || 'https://api.open-meteo.com/v1/forecast';
@@ -104,11 +107,12 @@ async function speak(req, res) {
     const detail = (await r.text()).slice(0, 300);
     console.error('ElevenLabs-Fehler', r.status, redact(detail));
     let msg = 'ElevenLabs meldet Fehler ' + r.status + '.';
+    if (r.status === 401 && /unusual_activity/.test(detail)) msg = 'ElevenLabs hat den kostenlosen Tarif für diesen Server gesperrt (ungewöhnliche Aktivität). Dafür braucht es einen bezahlten ElevenLabs-Tarif.';
     if (r.status === 400 && /invalid_api_key/.test(detail)) msg = 'Der ElevenLabs-Key hat ein falsches Format. Er muss mit sk_ beginnen. Bitte ELEVENLABS_API_KEY neu und ohne Leerzeichen einfügen.';
     if (r.status === 401) msg = 'Der ElevenLabs-Key wurde abgelehnt. Prüfe ELEVENLABS_API_KEY (einstellungen.txt oder bei Render unter Environment) und ob der Key die Berechtigung „Text to Speech“ hat.';
     if (r.status === 404) msg = 'Die Stimme (VOICE_ID) wurde nicht gefunden.';
     if (r.status === 429) msg = 'Zu viele Anfragen oder Kontingent aufgebraucht.';
-    return sendJson(res, 502, { error: msg });
+    return sendJson(res, 502, { error: msg, fatal: [400, 401, 402, 403, 404].includes(r.status) });
   }
 
   const audio = Buffer.from(await r.arrayBuffer());
@@ -413,7 +417,7 @@ const server = http.createServer((req, res) => {
     return fs.createReadStream(path.join(__dirname, 'index.html')).pipe(res);
   }
   if (req.method === 'GET' && url === '/api/status') {
-    return sendJson(res, 200, { keySet: keySet, chatKeySet: chatKeySet, model: CLAUDE_MODEL });
+    return sendJson(res, 200, { keySet: keySet, chatKeySet: chatKeySet, model: CLAUDE_MODEL, voice: VOICE_MODE });
   }
   if (req.method === 'POST' && url === '/api/chat') {
     return chat(req, res).catch((e) => {
@@ -443,6 +447,7 @@ server.listen(PORT, HOST, () => {
   console.log('  JARVIS läuft:  http://localhost:' + PORT + (isLoopback ? '' : '  (erreichbar über ' + HOST + ')'));
   console.log('  Zugangscode:    ' + (codeSet ? 'aktiv' : 'aus (nur dieser Rechner)'));
   console.log('  ElevenLabs-Key: ' + (keySet ? 'gefunden' : 'FEHLT – bitte in einstellungen.txt eintragen'));
+  console.log('  Stimme:         ' + VOICE_MODE);
   console.log('  Anthropic-Key:  ' + (chatKeySet ? 'gefunden (Modell ' + CLAUDE_MODEL + ')' : 'FEHLT – bitte in einstellungen.txt eintragen'));
   console.log('  Beenden mit Strg + C');
   console.log('');
