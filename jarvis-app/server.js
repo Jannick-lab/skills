@@ -104,6 +104,7 @@ async function speak(req, res) {
     const detail = (await r.text()).slice(0, 300);
     console.error('ElevenLabs-Fehler', r.status, redact(detail));
     let msg = 'ElevenLabs meldet Fehler ' + r.status + '.';
+    if (r.status === 400 && /invalid_api_key/.test(detail)) msg = 'Der ElevenLabs-Key hat ein falsches Format. Er muss mit sk_ beginnen. Bitte ELEVENLABS_API_KEY neu und ohne Leerzeichen einfügen.';
     if (r.status === 401) msg = 'Der ElevenLabs-Key wurde abgelehnt. Prüfe ELEVENLABS_API_KEY (einstellungen.txt oder bei Render unter Environment) und ob der Key die Berechtigung „Text to Speech“ hat.';
     if (r.status === 404) msg = 'Die Stimme (VOICE_ID) wurde nicht gefunden.';
     if (r.status === 429) msg = 'Zu viele Anfragen oder Kontingent aufgebraucht.';
