@@ -75,7 +75,7 @@ function readBody(req) {
 
 async function speak(req, res) {
   if (!keySet) {
-    return sendJson(res, 500, { error: 'Kein API-Key gefunden. Trage ihn in einstellungen.txt ein und starte den Server neu.' });
+    return sendJson(res, 500, { error: 'Kein ElevenLabs-Key gefunden. Trage ELEVENLABS_API_KEY in einstellungen.txt ein (bei Render: Environment) und starte den Server neu.' });
   }
   let text = '';
   try {
@@ -104,7 +104,7 @@ async function speak(req, res) {
     const detail = (await r.text()).slice(0, 300);
     console.error('ElevenLabs-Fehler', r.status, redact(detail));
     let msg = 'ElevenLabs meldet Fehler ' + r.status + '.';
-    if (r.status === 401) msg = 'Der API-Key wurde abgelehnt. Bitte in einstellungen.txt prüfen.';
+    if (r.status === 401) msg = 'Der ElevenLabs-Key wurde abgelehnt. Prüfe ELEVENLABS_API_KEY (einstellungen.txt oder bei Render unter Environment) und ob der Key die Berechtigung „Text to Speech“ hat.';
     if (r.status === 404) msg = 'Die Stimme (VOICE_ID) wurde nicht gefunden.';
     if (r.status === 429) msg = 'Zu viele Anfragen oder Kontingent aufgebraucht.';
     return sendJson(res, 502, { error: msg });
@@ -249,7 +249,7 @@ async function runTool(block) {
 
 async function chat(req, res) {
   if (!chatKeySet) {
-    return sendJson(res, 500, { error: 'Kein Anthropic-API-Key gefunden. Trage ANTHROPIC_API_KEY in einstellungen.txt ein und starte den Server neu.' });
+    return sendJson(res, 500, { error: 'Kein Anthropic-API-Key gefunden. Trage ANTHROPIC_API_KEY in einstellungen.txt ein (bei Render: Environment) und starte den Server neu.' });
   }
   let body;
   try {
@@ -291,7 +291,7 @@ async function chat(req, res) {
       console.error('Anthropic-Fehler', r.status, redact(detail));
       let msg = 'Anthropic meldet Fehler ' + r.status + '.';
       if (r.status === 400 && /credit|balance/i.test(detail)) msg = 'Das Anthropic-Guthaben ist aufgebraucht. Bitte in der Anthropic Console aufladen.';
-      if (r.status === 401) msg = 'Der Anthropic-API-Key wurde abgelehnt. Bitte ANTHROPIC_API_KEY in einstellungen.txt prüfen.';
+      if (r.status === 401) msg = 'Der Anthropic-API-Key wurde abgelehnt. Bitte ANTHROPIC_API_KEY prüfen (einstellungen.txt oder bei Render unter Environment).';
       if (r.status === 403) msg = 'Der Anthropic-API-Key hat keine Berechtigung für diese Anfrage.';
       if (r.status === 404) msg = 'Das Modell „' + CLAUDE_MODEL + '“ wurde nicht gefunden. Bitte MODEL in einstellungen.txt prüfen.';
       if (r.status === 429) msg = 'Das Anfrage-Limit bei Anthropic ist erreicht. Bitte warte einen Moment.';
