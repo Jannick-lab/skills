@@ -1,0 +1,719 @@
+<title>JARVIS Kommandodeck</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: Kopfleiste · drei Spalten (System | Kern | Agenda) · Fußleiste. Tablet: Kern oben, Seitenspalten darunter. */
+:root {
+  --bg: #020611;
+  --bg-2: #08193a;
+  --panel: rgba(10, 34, 62, 0.42);
+  --panel-2: rgba(3, 12, 26, 0.66);
+  --cyan: #35e6ff;
+  --cyan-soft: rgba(53, 230, 255, 0.55);
+  --cyan-dim: rgba(53, 230, 255, 0.14);
+  --line: rgba(53, 230, 255, 0.26);
+  --amber: #ffb02e;
+  --amber-dim: rgba(255, 176, 46, 0.16);
+  --fg: #d4f6ff;
+  --mut: #7aa3b9;
+  --font-display: "Rajdhani", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-mono: "Share Tech Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: radial-gradient(ellipse 80% 60% at 50% 38%, var(--bg-2) 0%, var(--bg) 70%) fixed;
+  color: var(--fg);
+  font: 14px/1.45 var(--font-mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.grid-bg {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    linear-gradient(rgba(53,230,255,.10) 1px, transparent 1px) 0 0 / 160px 160px,
+    linear-gradient(90deg, rgba(53,230,255,.10) 1px, transparent 1px) 0 0 / 160px 160px,
+    linear-gradient(rgba(53,230,255,.045) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, rgba(53,230,255,.045) 1px, transparent 1px) 0 0 / 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 45%, #000 20%, transparent 85%);
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 45%, #000 20%, transparent 85%);
+}
+.scan {
+  position: fixed; left: 0; right: 0; top: 0; height: 120px; pointer-events: none; z-index: 5;
+  background: linear-gradient(180deg, transparent, rgba(53,230,255,.05) 70%, rgba(53,230,255,.16) 99%, transparent);
+  animation: scan 11s linear infinite;
+}
+@keyframes scan { from { transform: translateY(-140px); } to { transform: translateY(100vh); } }
+
+.app {
+  position: relative; z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(270px, 330px);
+  grid-template-areas: "top top top" "left core right" "bottom bottom bottom";
+  gap: 16px;
+  padding-block: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  max-width: 1680px; margin: 0 auto;
+}
+.top { grid-area: top; } .left { grid-area: left; } .core-col { grid-area: core; } .right { grid-area: right; } .bottom { grid-area: bottom; }
+.left, .right, .core-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.side { transition: opacity .5s, filter .5s; }
+.focus .side { opacity: .22; filter: saturate(.4); }
+
+/* Panels */
+.panel {
+  position: relative;
+  background: linear-gradient(160deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  padding: 14px 16px 16px;
+  min-width: 0;
+  transition: box-shadow .25s, border-color .25s, background .25s;
+}
+.panel::before {
+  content: ""; position: absolute; inset: -1px; pointer-events: none;
+  background:
+    linear-gradient(var(--cyan), var(--cyan)) top left / 16px 2px,
+    linear-gradient(var(--cyan), var(--cyan)) top left / 2px 16px,
+    linear-gradient(var(--cyan), var(--cyan)) top right / 16px 2px,
+    linear-gradient(var(--cyan), var(--cyan)) top right / 2px 16px,
+    linear-gradient(var(--cyan), var(--cyan)) bottom left / 16px 2px,
+    linear-gradient(var(--cyan), var(--cyan)) bottom left / 2px 16px,
+    linear-gradient(var(--cyan), var(--cyan)) bottom right / 16px 2px,
+    linear-gradient(var(--cyan), var(--cyan)) bottom right / 2px 16px;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 0 3px var(--cyan));
+}
+.panel:hover { border-color: var(--cyan-soft); background: linear-gradient(160deg, rgba(14,50,88,.5), rgba(4,16,34,.7)); box-shadow: 0 0 26px rgba(53,230,255,.22), inset 0 0 28px rgba(53,230,255,.06); }
+.ph { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.ph h2 { margin: 0; font: 600 15px/1 var(--font-display); letter-spacing: .22em; text-transform: uppercase; color: var(--cyan); text-shadow: 0 0 8px var(--cyan-soft); }
+.code { font-size: 12px; color: var(--mut); letter-spacing: .08em; }
+.ruler { height: 7px; margin-bottom: 12px; opacity: .55;
+  background: repeating-linear-gradient(90deg, var(--cyan) 0 1px, transparent 1px 8px) bottom / 100% 4px no-repeat,
+              repeating-linear-gradient(90deg, var(--cyan) 0 1px, transparent 1px 40px) bottom / 100% 7px no-repeat; }
+.tag { display: inline-block; font-size: 12px; letter-spacing: .06em; padding: 1px 6px; border: 1px solid var(--line); color: var(--cyan); white-space: nowrap; }
+.tag.warn { color: var(--amber); border-color: var(--amber); background: var(--amber-dim); text-shadow: 0 0 6px rgba(255,176,46,.6); }
+
+/* Boot-in animation */
+.reveal { animation: boot .9s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i, 0) * 90ms); }
+@keyframes boot { from { opacity: 0; transform: translateY(10px); filter: blur(5px) brightness(2); } to { opacity: 1; transform: none; filter: none; } }
+.flicker { animation: flicker 7s infinite; }
+@keyframes flicker { 0%, 90%, 94%, 100% { opacity: 1; } 91% { opacity: .55; } 92% { opacity: .95; } 93% { opacity: .6; } }
+
+/* Top bar */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 8px 4px 4px; border-bottom: 1px solid var(--line); position: relative; }
+.top::after { content: ""; position: absolute; left: 0; bottom: -1px; width: 140px; height: 2px; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+.brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.brand svg { width: 38px; height: 38px; flex: none; filter: drop-shadow(0 0 5px var(--cyan)); }
+.brand h1 { margin: 0; font: 700 26px/1 var(--font-display); letter-spacing: .38em; color: var(--cyan); text-shadow: 0 0 14px var(--cyan-soft); }
+.brand p { margin: 3px 0 0; font-size: 12px; letter-spacing: .16em; color: var(--mut); text-transform: uppercase; }
+.chips { display: flex; gap: 8px 16px; flex-wrap: wrap; font-size: 12px; letter-spacing: .08em; color: var(--mut); }
+.chips b { color: var(--fg); font-weight: 400; }
+.chips .ok b { color: var(--cyan); text-shadow: 0 0 6px var(--cyan-soft); }
+.chips .alert b { color: var(--amber); text-shadow: 0 0 6px rgba(255,176,46,.6); }
+
+/* Gauges */
+.gauge-row { display: grid; grid-template-columns: 128px minmax(0, 1fr); gap: 12px; align-items: center; }
+.gauge svg { display: block; width: 100%; height: auto; overflow: visible; }
+.g-track { fill: none; stroke: var(--cyan-dim); stroke-width: 7; }
+.g-val { fill: none; stroke: var(--cyan); stroke-width: 7; stroke-linecap: butt; filter: drop-shadow(0 0 5px var(--cyan)); transition: stroke-dasharray .9s ease, stroke .4s; }
+.g-ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.g-ring.dash { stroke-dasharray: 3 5; transform-origin: 60px 60px; animation: spin 40s linear infinite; }
+.g-ring.dash.rev { animation-direction: reverse; animation-duration: 28s; }
+.g-tick { stroke: var(--cyan-soft); stroke-width: 1; }
+.g-num { fill: var(--fg); font: 400 24px var(--font-mono); text-anchor: middle; }
+.g-unit { fill: var(--mut); font: 400 8px var(--font-mono); letter-spacing: .12em; text-anchor: middle; }
+.gauge.warn .g-val { stroke: var(--amber); filter: drop-shadow(0 0 6px var(--amber)); }
+.gauge.warn .g-num { fill: var(--amber); }
+.stats { margin: 0; display: grid; gap: 4px; font-size: 12px; letter-spacing: .04em; }
+.stats div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted rgba(53,230,255,.18); padding-bottom: 3px; }
+.stats dt { color: var(--mut); } .stats dd { margin: 0; color: var(--fg); text-align: right; }
+.spark { display: block; width: 100%; height: 26px; margin-top: 6px; }
+.spark path { fill: none; stroke: var(--cyan); stroke-width: 1.2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 3px var(--cyan)); }
+.warn .spark path { stroke: var(--amber); filter: drop-shadow(0 0 3px var(--amber)); }
+
+/* Core */
+.core-panel { padding-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.core-wrap { position: relative; width: min(100%, max(300px, 52vh)); aspect-ratio: 1; margin: 0 auto; }
+.core { width: 100%; height: 100%; display: block; overflow: visible; }
+.core .spin { transform-origin: 200px 200px; animation: spin 120s linear infinite; }
+.core .s2 { animation-duration: 70s; animation-direction: reverse; }
+.core .s3 { animation-duration: 46s; }
+.core .s4 { animation-duration: 30s; animation-direction: reverse; }
+.core .s5 { animation-duration: 18s; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.core .heart { transform-origin: 200px 200px; }
+.core .wave { fill: none; stroke: var(--cyan); stroke-width: 1.5; opacity: 0; transform-origin: 200px 200px; }
+.speaking .wave { animation: wave 2.4s ease-out infinite; }
+.speaking .wave:nth-of-type(2) { animation-delay: .8s; }
+.speaking .wave:nth-of-type(3) { animation-delay: 1.6s; }
+@keyframes wave { from { transform: scale(1); opacity: .75; } to { transform: scale(2.3); opacity: 0; } }
+.listening .core .s5 { animation-duration: 5s; }
+.core text { font-family: var(--font-mono); }
+.coord { position: absolute; font-size: 12px; letter-spacing: .1em; color: var(--mut); pointer-events: none; }
+.coord.tl { top: 0; left: 0; } .coord.tr { top: 0; right: 0; text-align: right; } .coord.bl { bottom: 0; left: 0; } .coord.br { bottom: 0; right: 0; text-align: right; }
+.reply { min-height: 3.1em; width: 100%; max-width: 620px; margin: 0; text-align: center; font-size: 15px; color: var(--fg); text-shadow: 0 0 8px rgba(53,230,255,.35); }
+.reply::after { content: "▌"; color: var(--cyan); animation: blink 1s steps(2) infinite; margin-left: 2px; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.wave-panel canvas { display: block; width: 100%; height: 76px; }
+.cmd { display: flex; align-items: stretch; gap: 8px; border: 1px solid var(--line); background: rgba(2,10,22,.7); padding: 4px; transition: box-shadow .25s, border-color .25s; }
+.cmd:hover, .cmd:focus-within { border-color: var(--cyan); box-shadow: 0 0 20px rgba(53,230,255,.3); }
+.cmd .prompt { align-self: center; padding-left: 8px; color: var(--cyan); text-shadow: 0 0 6px var(--cyan); }
+.cmd input { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--fg); font: 15px var(--font-mono); padding: 10px 6px; }
+.cmd input::placeholder { color: var(--mut); }
+.btn { font: 600 14px var(--font-display); letter-spacing: .2em; text-transform: uppercase; color: var(--cyan); background: var(--cyan-dim); border: 1px solid var(--line); padding: 0 16px; min-height: 42px; cursor: pointer; transition: box-shadow .2s, background .2s, border-color .2s, color .2s; }
+.btn:hover { background: rgba(53,230,255,.26); border-color: var(--cyan); box-shadow: 0 0 16px rgba(53,230,255,.5); color: #fff; }
+.btn.icon { width: 46px; padding: 0; display: grid; place-items: center; }
+.btn.icon svg { width: 20px; height: 20px; }
+.btn[aria-pressed="true"] { background: rgba(53,230,255,.3); border-color: var(--cyan); box-shadow: 0 0 16px rgba(53,230,255,.5); }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* Right column */
+.wx { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: center; }
+.fc { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.fc div { border: 1px solid var(--line); padding: 6px 8px; font-size: 12px; text-align: center; background: rgba(53,230,255,.04); transition: box-shadow .2s, border-color .2s; }
+.fc div:hover { border-color: var(--cyan); box-shadow: 0 0 14px rgba(53,230,255,.3); }
+.fc b { display: block; font: 600 14px var(--font-display); letter-spacing: .14em; color: var(--cyan); }
+.fc span { color: var(--mut); }
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.tabs button { flex: 1; font: 600 14px var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--mut); background: transparent; border: 1px solid transparent; border-bottom-color: var(--line); padding: 8px 4px; min-height: 40px; cursor: pointer; transition: color .2s, box-shadow .2s, background .2s; }
+.tabs button:hover { color: var(--fg); background: var(--cyan-dim); }
+.tabs button[aria-selected="true"] { color: var(--cyan); border-color: var(--line); border-bottom-color: var(--cyan); background: var(--cyan-dim); text-shadow: 0 0 8px var(--cyan-soft); box-shadow: 0 6px 12px -8px var(--cyan); }
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.list li, .task { display: grid; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid transparent; border-left: 2px solid var(--line); background: rgba(53,230,255,.04); transition: box-shadow .2s, border-color .2s, background .2s; font-size: 13px; }
+.list li:hover, .task:hover { border-color: var(--cyan-soft); border-left-color: var(--cyan); background: rgba(53,230,255,.1); box-shadow: 0 0 16px rgba(53,230,255,.22); }
+.cal li { grid-template-columns: 46px minmax(0, 1fr) auto; }
+.cal .t { color: var(--cyan); }
+.cal small { display: block; color: var(--mut); font-size: 12px; }
+.cal li.past { opacity: .42; }
+.cal li.next { border-left-color: var(--cyan); background: rgba(53,230,255,.12); box-shadow: 0 0 14px rgba(53,230,255,.2); }
+.cal li.conf { border-left-color: var(--amber); }
+.task { grid-template-columns: 18px minmax(0, 1fr) auto; width: 100%; color: var(--fg); font-family: var(--font-mono); text-align: left; cursor: pointer; min-height: 44px; }
+.task .box { width: 16px; height: 16px; border: 1px solid var(--cyan); position: relative; clip-path: polygon(0 0, 70% 0, 100% 30%, 100% 100%, 0 100%); }
+.task[aria-pressed="true"] { color: var(--mut); }
+.task[aria-pressed="true"] .lbl { text-decoration: line-through; }
+.task[aria-pressed="true"] .box { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+.news li { grid-template-columns: minmax(0, 1fr); gap: 3px; }
+.news small { color: var(--mut); font-size: 12px; letter-spacing: .06em; }
+.note { margin: 10px 0 0; font-size: 12px; color: var(--mut); letter-spacing: .04em; }
+
+/* Bottom bar */
+.bottom { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 12px 28px; align-items: center; padding: 12px 18px; }
+.clock { font: 400 40px/1 var(--font-mono); color: var(--cyan); text-shadow: 0 0 14px var(--cyan); letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.clock .sec { font-size: 22px; color: var(--cyan-soft); }
+.date { font: 600 18px/1.2 var(--font-display); letter-spacing: .2em; text-transform: uppercase; }
+.date small { display: block; font: 12px var(--font-mono); letter-spacing: .1em; color: var(--mut); margin-top: 3px; }
+.quick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.quick .btn { padding: 0 12px; letter-spacing: .14em; }
+
+@media (max-width: 1100px) {
+  .app { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "top top" "core core" "left right" "bottom bottom"; }
+  .left { display: grid; grid-template-columns: 1fr; align-content: start; }
+  .core-wrap { width: min(100%, 420px); }
+  .bottom { grid-template-columns: auto minmax(0, 1fr); }
+  .quick { grid-column: 1 / -1; justify-content: flex-start; }
+}
+@media (max-width: 720px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "core" "left" "right" "bottom"; }
+  .brand h1 { font-size: 22px; letter-spacing: .28em; }
+  .clock { font-size: 32px; }
+  .bottom { grid-template-columns: minmax(0, 1fr); }
+  .tabs button { letter-spacing: .06em; font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+
+<div class="grid-bg" aria-hidden="true"></div>
+<div class="scan" aria-hidden="true"></div>
+
+<div class="app" id="app">
+
+  <header class="top reveal" style="--i:0">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" fill="none" stroke="#35e6ff" aria-hidden="true">
+        <circle cx="20" cy="20" r="17" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <path d="M20 3 A17 17 0 0 1 37 20" stroke-width="2.4"/>
+        <circle cx="20" cy="20" r="10" stroke-width="1.2"/>
+        <circle cx="20" cy="20" r="3.5" fill="#35e6ff"/>
+      </svg>
+      <div>
+        <h1>JARVIS</h1>
+        <p>Persönliches KI-Assistenzsystem · Build 7.3.1</p>
+      </div>
+    </div>
+    <div class="chips" aria-label="Systemstatus">
+      <span class="ok" id="chipSys">SYSTEM <b>NOMINAL</b></span>
+      <span class="ok">KERN <b id="chipState">BEREIT</b></span>
+      <span>SESSION <b>0xA7F3</b></span>
+      <span>POS <b>52.5200°N 13.4050°O</b></span>
+    </div>
+  </header>
+
+  <!-- LEFT: Systemstatus -->
+  <aside class="left side">
+    <section class="panel reveal" style="--i:2" id="p-cpu">
+      <div class="ph"><h2>Prozessor</h2><span class="code">SYS-0x01</span></div>
+      <div class="ruler" aria-hidden="true"></div>
+      <div class="gauge-row">
+        <div class="gauge" id="g-cpu" role="img" aria-label="CPU-Auslastung"></div>
+        <div>
+          <dl class="stats">
+            <div><dt>KERNE</dt><dd>8</dd></div>
+            <div><dt>TAKT</dt><dd id="cpuClk">3.4 GHz</dd></div>
+            <div><dt>TEMP</dt><dd id="cpuTmp">52 °C</dd></div>
+          </dl>
+          <svg class="spark" id="s-cpu" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><path d=""/></svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel reveal" style="--i:3" id="p-mem">
+      <div class="ph"><h2>Speicher</h2><span class="code">SYS-0x02</span></div>
+      <div class="ruler" aria-hidden="true"></div>
+      <div class="gauge-row">
+        <div class="gauge" id="g-mem" role="img" aria-label="Speicherauslastung"></div>
+        <div>
+          <dl class="stats">
+            <div><dt>BELEGT</dt><dd id="memUsed">11.5 GB</dd></div>
+            <div><dt>GESAMT</dt><dd>16 GB</dd></div>
+            <div><dt>SWAP</dt><dd id="memSwap">0.4 GB</dd></div>
+          </dl>
+          <svg class="spark" id="s-mem" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><path d=""/></svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel reveal" style="--i:4" id="p-net">
+      <div class="ph"><h2>Netzwerk</h2><span class="code">SYS-0x03</span></div>
+      <div class="ruler" aria-hidden="true"></div>
+      <div class="gauge-row">
+        <div class="gauge" id="g-net" role="img" aria-label="Netzwerkdurchsatz"></div>
+        <div>
+          <dl class="stats">
+            <div><dt>DOWN</dt><dd id="netDn">412 Mbit/s</dd></div>
+            <div><dt>UP</dt><dd id="netUp">38 Mbit/s</dd></div>
+            <div><dt>PING</dt><dd id="netPing">12 ms</dd></div>
+          </dl>
+          <svg class="spark" id="s-net" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><path d=""/></svg>
+        </div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- CENTER: Kern -->
+  <main class="core-col">
+    <section class="panel core-panel reveal" style="--i:1" id="coreWrapPanel">
+      <div class="core-wrap" id="coreWrap" data-state="idle">
+        <span class="coord tl">X 000.00<br>Y 000.00</span>
+        <span class="coord tr">ORBIT 7<br>LOCK ▮▮▮▯</span>
+        <span class="coord bl">FREQ 48.0 kHz</span>
+        <span class="coord br" id="coreTime">T+00:00:00</span>
+        <svg class="core" viewBox="0 0 400 400" aria-label="JARVIS Kern" role="img">
+          <defs>
+            <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="2.4" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <radialGradient id="coreFill">
+              <stop offset="0" stop-color="#35e6ff" stop-opacity=".62"/>
+              <stop offset=".65" stop-color="#35e6ff" stop-opacity=".12"/>
+              <stop offset="1" stop-color="#35e6ff" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <g filter="url(#glow)" fill="none" stroke="#35e6ff">
+            <g class="spin s1" id="scale"></g>
+            <g class="spin s2">
+              <circle cx="200" cy="200" r="166" stroke-width="3" stroke-dasharray="280 22 150 22 330 22 120 22" opacity=".85"/>
+              <circle cx="200" cy="200" r="172" stroke-width="1" opacity=".35"/>
+            </g>
+            <g class="spin s3">
+              <circle cx="200" cy="200" r="142" stroke-width="9" stroke-dasharray="2 7" opacity=".3"/>
+              <circle cx="200" cy="200" r="142" stroke-width="1" opacity=".5"/>
+            </g>
+            <g class="spin s4">
+              <circle cx="200" cy="200" r="118" stroke-width="5" stroke-dasharray="60 187.13" opacity=".95"/>
+              <circle cx="200" cy="200" r="118" stroke-width="1" opacity=".4"/>
+              <circle cx="200" cy="200" r="106" stroke-width="1" stroke-dasharray="1 5" opacity=".7"/>
+            </g>
+            <g class="spin s5">
+              <circle cx="200" cy="200" r="92" stroke-width="1.5" stroke-dasharray="40 14 8 14" opacity=".9"/>
+              <polygon points="254,200 227,246.8 173,246.8 146,200 173,153.2 227,153.2" stroke-width="1" opacity=".55"/>
+            </g>
+            <g opacity=".35" stroke-width="1">
+              <line x1="200" y1="14" x2="200" y2="58"/><line x1="200" y1="342" x2="200" y2="386"/>
+              <line x1="14" y1="200" x2="58" y2="200"/><line x1="342" y1="200" x2="386" y2="200"/>
+            </g>
+            <circle class="wave" cx="200" cy="200" r="64"/>
+            <circle class="wave" cx="200" cy="200" r="64"/>
+            <circle class="wave" cx="200" cy="200" r="64"/>
+            <g class="heart" id="heart">
+              <circle cx="200" cy="200" r="68" fill="url(#coreFill)" stroke="none"/>
+              <circle cx="200" cy="200" r="64" stroke-width="1.6"/>
+              <circle cx="200" cy="200" r="58" stroke-width=".8" opacity=".6"/>
+            </g>
+          </g>
+          <text x="200" y="199" text-anchor="middle" font-size="17" letter-spacing="5" fill="#d4f6ff" font-weight="400">JARVIS</text>
+          <text id="stateTxt" x="200" y="219" text-anchor="middle" font-size="9" letter-spacing="3.5" fill="#35e6ff">BEREIT</text>
+        </svg>
+      </div>
+      <p class="reply" id="reply" aria-live="polite"></p>
+    </section>
+
+    <section class="panel wave-panel reveal" style="--i:5">
+      <div class="ph"><h2>Sprachsignal</h2><span class="code" id="sigInfo">48 kHz · MONO · −42 dB</span></div>
+      <canvas id="wave" aria-label="Sprach-Wellenform" role="img"></canvas>
+    </section>
+
+    <form class="cmd reveal" style="--i:6" id="cmd" autocomplete="off">
+      <label class="sr" for="q">Befehl an JARVIS</label>
+      <span class="prompt" aria-hidden="true">&gt;_</span>
+      <input id="q" type="text" placeholder="Befehl oder Frage an JARVIS …" enterkeyhint="send">
+      <button class="btn icon" type="button" id="mic" aria-label="Spracheingabe (Demo)" aria-pressed="false" title="Spracheingabe (Demo)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <button class="btn" type="submit">Senden</button>
+    </form>
+  </main>
+
+  <!-- RIGHT: Wetter + Agenda -->
+  <aside class="right side">
+    <section class="panel reveal" style="--i:2">
+      <div class="ph"><h2>Wetter</h2><span class="code">METEO-0x04</span></div>
+      <div class="ruler" aria-hidden="true"></div>
+      <div class="wx">
+        <div class="gauge" id="g-wx" role="img" aria-label="Temperatur 7 Grad"></div>
+        <dl class="stats">
+          <div><dt>ORT</dt><dd>BERLIN</dd></div>
+          <div><dt>GEFÜHLT</dt><dd>4 °C</dd></div>
+          <div><dt>WIND</dt><dd>14 km/h NW</dd></div>
+          <div><dt>FEUCHTE</dt><dd>81 %</dd></div>
+          <div><dt>REGEN</dt><dd>30 %</dd></div>
+        </dl>
+      </div>
+      <div class="fc" id="fc"></div>
+    </section>
+
+    <section class="panel reveal" style="--i:3">
+      <div class="ph"><h2>Agenda</h2><span class="code">AGD-0x05</span></div>
+      <div class="tabs" role="tablist" aria-label="Agenda">
+        <button role="tab" id="tab-cal" aria-selected="true" aria-controls="pan-cal" data-tab="cal">Kalender</button>
+        <button role="tab" id="tab-tasks" aria-selected="false" aria-controls="pan-tasks" data-tab="tasks" tabindex="-1">Aufgaben</button>
+        <button role="tab" id="tab-news" aria-selected="false" aria-controls="pan-news" data-tab="news" tabindex="-1">News</button>
+      </div>
+
+      <div role="tabpanel" id="pan-cal" aria-labelledby="tab-cal">
+        <ul class="list cal" id="calList">
+          <li data-start="09:30"><span class="t">09:30</span><span>Team-Abstimmung<small>30 Min · Video</small></span><span class="tag">ONLINE</span></li>
+          <li data-start="12:30"><span class="t">12:30</span><span>Mittagessen mit Lena<small>60 Min · Kantine</small></span><span class="tag">PRIVAT</span></li>
+          <li class="conf" data-start="14:00"><span class="t">14:00</span><span>Projektreview Q4<small>90 Min · Raum 3.12</small></span><span class="tag warn">KONFLIKT</span></li>
+          <li class="conf" data-start="14:30"><span class="t">14:30</span><span>Telefonat Steuerberater<small>30 Min · Telefon</small></span><span class="tag warn">KONFLIKT</span></li>
+          <li data-start="18:00"><span class="t">18:00</span><span>Training<small>60 Min · Studio</small></span><span class="tag">PRIVAT</span></li>
+        </ul>
+      </div>
+
+      <div role="tabpanel" id="pan-tasks" aria-labelledby="tab-tasks" hidden>
+        <ul class="list" id="taskList">
+          <li style="padding:0;border:0;background:none;box-shadow:none"><button class="task" aria-pressed="false"><span class="box"></span><span class="lbl">Rechnung Q4 freigeben</span><span class="tag warn">ÜBERFÄLLIG</span></button></li>
+          <li style="padding:0;border:0;background:none;box-shadow:none"><button class="task" aria-pressed="false"><span class="box"></span><span class="lbl">Zugverbindung nach Hamburg buchen</span><span class="tag">HEUTE</span></button></li>
+          <li style="padding:0;border:0;background:none;box-shadow:none"><button class="task" aria-pressed="true"><span class="box"></span><span class="lbl">Präsentation überarbeiten</span><span class="tag">ERLEDIGT</span></button></li>
+          <li style="padding:0;border:0;background:none;box-shadow:none"><button class="task" aria-pressed="false"><span class="box"></span><span class="lbl">Geschenk bestellen</span><span class="tag">FR</span></button></li>
+          <li style="padding:0;border:0;background:none;box-shadow:none"><button class="task" aria-pressed="false"><span class="box"></span><span class="lbl">Backup prüfen</span><span class="tag">SO</span></button></li>
+        </ul>
+        <p class="note" id="taskCount"></p>
+      </div>
+
+      <div role="tabpanel" id="pan-news" aria-labelledby="tab-news" hidden>
+        <ul class="list news">
+          <li><span>Sprachassistenten lernen, Kontext über Tage zu behalten</span><small>TECHNIK · VOR 12 MIN</small></li>
+          <li><span>Neue Förderung für Balkonkraftwerke geplant</span><small>ENERGIE · VOR 41 MIN</small></li>
+          <li><span>Bahn meldet Streckensperrung zwischen Hannover und Hamburg</span><small>VERKEHR · VOR 1 STD</small></li>
+          <li><span>Wetterdienst warnt vor Glätte in der Nacht zu Mittwoch</span><small>WETTER · VOR 2 STD</small></li>
+        </ul>
+      </div>
+      <p class="note">Beispieldaten · kein Live-Feed angebunden</p>
+    </section>
+  </aside>
+
+  <!-- BOTTOM -->
+  <footer class="panel bottom reveal" style="--i:7">
+    <div class="clock flicker" id="clock" aria-label="Uhrzeit">00:00<span class="sec">:00</span></div>
+    <div class="date" id="date">—<small>—</small></div>
+    <nav class="quick" aria-label="Schnellbefehle">
+      <button class="btn" data-cmd="Termine heute">Termine</button>
+      <button class="btn" data-cmd="Aufgaben">Aufgaben</button>
+      <button class="btn" data-cmd="Wetter">Wetter</button>
+      <button class="btn" data-cmd="Nachrichten">News</button>
+      <button class="btn" data-cmd="Systemcheck">Systemcheck</button>
+      <button class="btn" id="focusBtn" aria-pressed="false">Fokus</button>
+    </nav>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+
+  /* ---------- Core: Messskala ---------- */
+  (function buildScale() {
+    var h = '';
+    for (var i = 0; i < 120; i++) {
+      var long = i % 5 === 0;
+      h += '<line x1="200" y1="6" x2="200" y2="' + (long ? 17 : 11) + '" stroke-width="' + (long ? 1.4 : .8) + '" transform="rotate(' + (i * 3) + ' 200 200)"/>';
+    }
+    for (var a = 0; a < 360; a += 30) {
+      h += '<text x="200" y="32" text-anchor="middle" font-size="8" fill="#35e6ff" stroke="none" opacity=".8" transform="rotate(' + a + ' 200 200)">' + String(a).padStart(3, '0') + '</text>';
+    }
+    h += '<circle cx="200" cy="200" r="194" stroke-width=".8" opacity=".5"/>';
+    $('#scale').innerHTML = h;
+  })();
+
+  /* ---------- Radiale Anzeigen ---------- */
+  var C = 2 * Math.PI * 46, ARC = C * 0.75;
+  function buildGauge(el, big) {
+    var t = '';
+    for (var i = 0; i <= 27; i++) {
+      var ang = (135 + i * (270 / 27)) * Math.PI / 180;
+      var r1 = 54, r2 = i % 9 === 0 ? 60 : 57;
+      t += '<line class="g-tick" x1="' + (60 + r1 * Math.cos(ang)).toFixed(2) + '" y1="' + (60 + r1 * Math.sin(ang)).toFixed(2) + '" x2="' + (60 + r2 * Math.cos(ang)).toFixed(2) + '" y2="' + (60 + r2 * Math.sin(ang)).toFixed(2) + '"/>';
+    }
+    el.innerHTML = '<svg viewBox="-4 -4 128 128" aria-hidden="true">' + t +
+      '<circle class="g-track" cx="60" cy="60" r="46" stroke-dasharray="' + ARC + ' ' + C + '" transform="rotate(135 60 60)"/>' +
+      '<circle class="g-val" cx="60" cy="60" r="46" stroke-dasharray="0 ' + C + '" transform="rotate(135 60 60)"/>' +
+      '<circle class="g-ring dash" cx="60" cy="60" r="36"/><circle class="g-ring dash rev" cx="60" cy="60" r="31"/><circle class="g-ring" cx="60" cy="60" r="27"/>' +
+      '<text class="g-num" x="60" y="62">0</text><text class="g-unit" x="60" y="75"></text></svg>';
+  }
+  function setGauge(el, v, num, unit, warn) {
+    v = Math.max(0, Math.min(1, v));
+    $('.g-val', el).setAttribute('stroke-dasharray', (ARC * v).toFixed(2) + ' ' + C.toFixed(2));
+    $('.g-num', el).textContent = num;
+    $('.g-unit', el).textContent = unit;
+    el.classList.toggle('warn', !!warn);
+    var p = el.closest('.panel'); if (p) p.classList.toggle('warn', !!warn);
+  }
+  ['#g-cpu', '#g-mem', '#g-net', '#g-wx'].forEach(function (s) { buildGauge($(s)); });
+  setGauge($('#g-wx'), (7 + 10) / 45, '7', '°C', false);
+
+  /* ---------- Simulierte Systemwerte ---------- */
+  var sim = { cpu: .34, mem: .72, dn: .41, up: .08, ping: 12 };
+  var hist = { cpu: [], mem: [], net: [] };
+  function spark(id, arr) {
+    var n = 40, d = '';
+    arr.forEach(function (v, i) { d += (i ? 'L' : 'M') + (i * 100 / (n - 1)).toFixed(1) + ' ' + (22 - v * 20).toFixed(1); });
+    $('#' + id + ' path').setAttribute('d', d);
+  }
+  function push(a, v) { a.push(v); if (a.length > 40) a.shift(); }
+  var clamp = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
+  function tickSys() {
+    sim.cpu = clamp(sim.cpu + (Math.random() - .5) * .16 + (.36 - sim.cpu) * .12 + (Math.random() < .04 ? .35 : 0), .07, .97);
+    sim.mem = clamp(sim.mem + (Math.random() - .48) * .012, .6, .88);
+    sim.dn = clamp(sim.dn + (Math.random() - .5) * .22, .03, .98);
+    sim.up = clamp(sim.up + (Math.random() - .5) * .05, .01, .4);
+    sim.ping = clamp(Math.round(sim.ping + (Math.random() - .5) * 6), 8, 40);
+    var net = clamp(sim.dn * .85 + sim.up * .5, 0, 1);
+    setGauge($('#g-cpu'), sim.cpu, Math.round(sim.cpu * 100), '% LAST', sim.cpu >= .8);
+    setGauge($('#g-mem'), sim.mem, Math.round(sim.mem * 100), '% BELEGT', sim.mem >= .8);
+    setGauge($('#g-net'), net, Math.round(sim.dn * 1000 / 10) * 10 / 10, 'MBIT/S ↓', net >= .9);
+    $('#cpuClk').textContent = (2.8 + sim.cpu * 1.6).toFixed(1) + ' GHz';
+    $('#cpuTmp').textContent = Math.round(38 + sim.cpu * 40) + ' °C';
+    $('#memUsed').textContent = (sim.mem * 16).toFixed(1) + ' GB';
+    $('#memSwap').textContent = (Math.max(0, sim.mem - .6) * 3).toFixed(1) + ' GB';
+    $('#netDn').textContent = Math.round(sim.dn * 1000) + ' Mbit/s';
+    $('#netUp').textContent = Math.round(sim.up * 1000) + ' Mbit/s';
+    $('#netPing').textContent = sim.ping + ' ms';
+    push(hist.cpu, sim.cpu); push(hist.mem, (sim.mem - .55) / .35); push(hist.net, net);
+    spark('s-cpu', hist.cpu); spark('s-mem', hist.mem); spark('s-net', hist.net);
+    var warns = [];
+    if (sim.cpu >= .8) warns.push('CPU'); if (sim.mem >= .8) warns.push('SPEICHER'); if (net >= .9) warns.push('NETZ');
+    var chip = $('#chipSys');
+    chip.className = warns.length ? 'alert' : 'ok';
+    chip.innerHTML = warns.length ? 'WARNUNG <b>' + warns.join(' · ') + '</b>' : 'SYSTEM <b>NOMINAL</b>';
+  }
+  for (var k = 0; k < 40; k++) { push(hist.cpu, .3 + Math.random() * .15); push(hist.mem, .5 + Math.random() * .1); push(hist.net, .3 + Math.random() * .3); }
+  tickSys(); setInterval(tickSys, 1300);
+
+  /* ---------- Wetter-Vorschau, Datum, Uhr ---------- */
+  var days = ['SO', 'MO', 'DI', 'MI', 'DO', 'FR', 'SA'];
+  var fcData = [['KLAR', '3°/9°'], ['REGEN', '5°/8°'], ['WOLKIG', '2°/6°']];
+  var now0 = new Date();
+  $('#fc').innerHTML = fcData.map(function (f, i) {
+    var d = new Date(now0.getTime() + (i + 1) * 864e5);
+    return '<div><b>' + days[d.getDay()] + '</b>' + f[0] + '<br><span>' + f[1] + '</span></div>';
+  }).join('');
+
+  var fmtDate = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  function isoWeek(d) {
+    var t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    var n = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - n);
+    var y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return Math.ceil(((t - y0) / 864e5 + 1) / 7);
+  }
+  var t0 = Date.now();
+  function tickClock() {
+    var d = new Date();
+    $('#clock').innerHTML = pad(d.getHours()) + ':' + pad(d.getMinutes()) + '<span class="sec">:' + pad(d.getSeconds()) + '</span>';
+    var parts = fmtDate.format(d).split(', ');
+    $('#date').innerHTML = parts[0] + '<small>' + parts[1] + ' · KW ' + isoWeek(d) + '</small>';
+    var s = Math.floor((Date.now() - t0) / 1000);
+    $('#coreTime').textContent = 'T+' + pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
+    markCalendar(d);
+  }
+  function markCalendar(d) {
+    var mins = d.getHours() * 60 + d.getMinutes(), found = false;
+    $$('#calList li').forEach(function (li) {
+      var p = li.dataset.start.split(':'), m = +p[0] * 60 + +p[1];
+      li.classList.toggle('past', m + 30 <= mins);
+      var isNext = !found && m + 30 > mins;
+      if (isNext) found = true;
+      li.classList.toggle('next', isNext);
+    });
+  }
+  tickClock(); setInterval(tickClock, 1000);
+
+  /* ---------- Tabs & Aufgaben ---------- */
+  var tabs = $$('.tabs [role=tab]');
+  function showTab(name) {
+    tabs.forEach(function (b) {
+      var on = b.dataset.tab === name;
+      b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1;
+      $('#' + b.getAttribute('aria-controls')).hidden = !on;
+    });
+  }
+  tabs.forEach(function (b, i) {
+    b.addEventListener('click', function () { showTab(b.dataset.tab); });
+    b.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        var n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+        n.focus(); showTab(n.dataset.tab);
+      }
+    });
+  });
+  function updateTasks() {
+    var all = $$('.task'), done = all.filter(function (t) { return t.getAttribute('aria-pressed') === 'true'; }).length;
+    $('#taskCount').textContent = done + ' von ' + all.length + ' Aufgaben erledigt';
+  }
+  $$('.task').forEach(function (t) {
+    t.addEventListener('click', function () {
+      var on = t.getAttribute('aria-pressed') !== 'true';
+      t.setAttribute('aria-pressed', on);
+      $('.tag', t).textContent = on ? 'ERLEDIGT' : 'OFFEN';
+      $('.tag', t).classList.remove('warn');
+      updateTasks();
+    });
+  });
+  updateTasks();
+
+  /* ---------- Assistent: Zustand, Sprechen, Befehle ---------- */
+  var wrap = $('#coreWrap'), reply = $('#reply'), state = 'idle', speakT, endT, listenT;
+  var labels = { idle: 'BEREIT', speaking: 'SPRICHT', listening: 'HÖRT ZU' };
+  function setState(s) {
+    state = s;
+    wrap.classList.toggle('speaking', s === 'speaking');
+    document.body.classList.toggle('listening', s === 'listening');
+    $('#stateTxt').textContent = labels[s];
+    $('#chipState').textContent = labels[s];
+    $('#sigInfo').textContent = s === 'idle' ? '48 kHz · MONO · −42 dB' : '48 kHz · MONO · −12 dB';
+    $('#mic').setAttribute('aria-pressed', s === 'listening');
+  }
+  function say(text) {
+    clearInterval(speakT); clearTimeout(endT); clearTimeout(listenT);
+    setState('speaking'); reply.textContent = '';
+    var i = 0;
+    speakT = setInterval(function () {
+      reply.textContent = text.slice(0, ++i);
+      if (i >= text.length) { clearInterval(speakT); endT = setTimeout(function () { setState('idle'); }, 800); }
+    }, 26);
+  }
+  function nextEvent() {
+    var li = $('#calList li.next');
+    return li ? $('.t', li).textContent + ' Uhr ' + li.children[1].firstChild.textContent : null;
+  }
+  function openTasks() { return $$('.task').filter(function (t) { return t.getAttribute('aria-pressed') !== 'true'; }).length; }
+  function answer(raw) {
+    var q = raw.toLowerCase(), d = new Date();
+    if (/^(hallo|hi|hey|guten)/.test(q)) return 'Hallo. Alle Systeme laufen. Womit kann ich helfen?';
+    if (/uhr|zeit/.test(q)) return 'Es ist ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ' Uhr.';
+    if (/datum|heute\b(?!.*termin)|tag/.test(q) && !/termin|aufgabe/.test(q)) return 'Heute ist ' + fmtDate.format(d) + ', Kalenderwoche ' + isoWeek(d) + '.';
+    if (/termin|kalender/.test(q)) { showTab('cal'); var n = nextEvent(); return (n ? 'Nächster Termin: ' + n + '. ' : 'Für heute stehen keine Termine mehr an. ') + 'Achtung: Projektreview und Telefonat Steuerberater überschneiden sich um 14:30 Uhr.'; }
+    if (/aufgabe|todo/.test(q)) { showTab('tasks'); var o = openTasks(); return o + (o === 1 ? ' Aufgabe ist' : ' Aufgaben sind') + ' offen. Die Rechnung Q4 ist überfällig.'; }
+    if (/wetter|regen|temperatur/.test(q)) return 'In Berlin sind es 7 Grad, gefühlt 4. Leichter Wind aus Nordwest, 30 Prozent Regenrisiko.';
+    if (/nachricht|news/.test(q)) { showTab('news'); return 'Vier neue Meldungen. Die Bahn meldet eine Streckensperrung Richtung Hamburg.'; }
+    if (/system|cpu|speicher|netz/.test(q)) return 'CPU ' + Math.round(sim.cpu * 100) + ' Prozent, Speicher ' + Math.round(sim.mem * 100) + ' Prozent, Download ' + Math.round(sim.dn * 1000) + ' Mbit/s. ' + (sim.cpu >= .8 || sim.mem >= .8 ? 'Ein Wert liegt im Warnbereich.' : 'Alle Werte im Normbereich.');
+    return 'Anfrage „' + raw + '“ erkannt. Diese Demo ist nicht mit einem Sprachmodell verbunden.';
+  }
+  function run(text) { text = text.trim(); if (text) say(answer(text)); }
+
+  $('#cmd').addEventListener('submit', function (e) { e.preventDefault(); var i = $('#q'); run(i.value); i.value = ''; });
+  $$('[data-cmd]').forEach(function (b) { b.addEventListener('click', function () { $('#q').value = ''; run(b.dataset.cmd); }); });
+  $('#mic').addEventListener('click', function () {
+    if (state === 'listening') { clearTimeout(listenT); setState('idle'); return; }
+    clearInterval(speakT); clearTimeout(endT);
+    setState('listening');
+    listenT = setTimeout(function () { say('Spracherkennung ist in dieser Demo nicht verbunden. Bitte tippe den Befehl ein.'); }, 3200);
+  });
+  $('#focusBtn').addEventListener('click', function () {
+    var on = document.body.classList.toggle('focus');
+    this.setAttribute('aria-pressed', on);
+    say(on ? 'Fokus-Modus aktiv. Seitenanzeigen sind gedimmt.' : 'Fokus-Modus beendet.');
+  });
+
+  var h = new Date().getHours();
+  say((h < 11 ? 'Guten Morgen' : h < 18 ? 'Guten Tag' : 'Guten Abend') + '. Alle Systeme bereit. Ich höre zu.');
+
+  /* ---------- Wellenform & Kernpuls ---------- */
+  var cv = $('#wave'), ctx = cv.getContext('2d'), W = 0, H = 0, amp = .1, env = 0, ph = 0, heart = $('#heart');
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function resize() {
+    var r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    W = r.width; H = r.height; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize(); window.addEventListener('resize', resize);
+  function frame(ts) {
+    var target;
+    if (state === 'speaking') { if (Math.random() < .12) env = .35 + Math.random() * .65; env *= .94; target = .22 + env * .78; }
+    else if (state === 'listening') target = .3 + Math.random() * .25;
+    else target = .07 + Math.sin(ts / 1400) * .03;
+    amp += (target - amp) * .12;
+    ph += .05 + amp * .12;
+    ctx.clearRect(0, 0, W, H);
+    var mid = H / 2;
+    // Mittellinie und Raster
+    ctx.strokeStyle = 'rgba(53,230,255,.16)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+    // Balken
+    var bars = Math.floor(W / 7);
+    ctx.fillStyle = 'rgba(53,230,255,.28)';
+    for (var b = 0; b < bars; b++) {
+      var x = b / bars, tp = Math.sin(Math.PI * x);
+      var v = (Math.sin(b * .55 + ph * 1.4) * .5 + .5) * (Math.sin(b * .21 - ph) * .4 + .6) * tp * amp;
+      var bh = 2 + v * (H - 8);
+      ctx.fillRect(b * 7 + 1, mid - bh / 2, 3, bh);
+    }
+    // Hauptlinien
+    ctx.shadowColor = '#35e6ff'; ctx.shadowBlur = 10;
+    [[1, .95, 1], [1.7, .5, -1.3], [2.6, .28, .8]].forEach(function (L, idx) {
+      ctx.beginPath();
+      for (var px = 0; px <= W; px += 3) {
+        var xx = px / W, tap = Math.pow(Math.sin(Math.PI * xx), 1.5);
+        var y = mid + Math.sin(xx * 14 * L[0] + ph * L[2]) * (H * .42) * amp * L[1] * tap;
+        px ? ctx.lineTo(px, y) : ctx.moveTo(px, y);
+      }
+      ctx.strokeStyle = idx === 0 ? '#35e6ff' : 'rgba(53,230,255,.45)'; ctx.lineWidth = idx === 0 ? 1.8 : 1; ctx.stroke();
+    });
+    ctx.shadowBlur = 0;
+    // Kern
+    var sc = 1 + amp * (reduce ? .02 : .09);
+    heart.style.transform = 'scale(' + sc.toFixed(3) + ')';
+    heart.style.filter = 'drop-shadow(0 0 ' + (6 + amp * 22).toFixed(1) + 'px #35e6ff)';
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
