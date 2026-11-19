@@ -85,6 +85,9 @@ Nach jeder Änderung den Server neu starten.
   monatlich am Datum, jährlich, mit Ausnahmen). Komplexe Regeln wie „jeden zweiten Freitag im Monat“ zeigt er nur einmal.
   Die Adresse bekommst du bei Google unter Kalender-Einstellungen, „Geheime Adresse im iCal-Format“. Sie gibt Zugriff auf deine
   Termine, setze sie nur als Umgebungsvariable und nie ins Repository.
+- **Termine vorschlagen:** Sag „Trag morgen um 15 Uhr Zahnarzt ein“. Jarvis zeigt eine Karte mit dem Vorschlag. Mit **In Kalender übernehmen**
+  öffnest du eine Kalenderdatei (.ics), und dein Gerät fragt, in welchen Kalender der Termin soll. Erst dein Tipp trägt ihn ein.
+  Jarvis hat keinen Schreibzugriff auf deinen Kalender und braucht dafür keine Zugangsdaten. Gelöscht oder geändert wird nichts.
 - **Nachrichten:** Schlagzeilen aus `NEWS_FEED_URL`, Jarvis kann sie vorlesen. Die Texte sind fremde Daten.
 - **Aufgaben:** Du kannst sie in der Kachel anlegen, abhaken und löschen oder Jarvis bitten („Setz Milch kaufen auf die Liste“,
   „Hak Zahnarzt ab“). Die Liste wird **im Browser dieses Geräts** gespeichert (nicht auf dem Server) und bleibt nach dem Neuladen.
