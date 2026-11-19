@@ -476,7 +476,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
     $('q').disabled = on;
     if (mic) mic.disabled = on;
   }
-  function ask(question) {
+  function ask(question, briefing) {
     question = (question || '').trim();
     if (!question || busy) return;
     unlockAudio();
@@ -488,7 +488,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
     show('…', false);
     var sent = history.slice();
     return fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: question, history: sent, context: context() }) })
+      body: JSON.stringify({ question: question, history: sent, context: context(), briefing: briefing === true }) })
       .then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (j) {
           if (!res.ok) throw new Error(j.error || 'Fehler ' + res.status);
@@ -603,10 +603,7 @@ h2{margin:0;font-size:15px;color:var(--c)}
     { label: 'Begrüßung', run: function () { speak('Hallo. Jarvis ist online und bereit.'); } },
     { label: 'Uhrzeit', run: function () { speak(timeText()); } },
     { label: 'Offene Aufgaben', run: function () { speak(taskText()); } },
-    { label: 'Tagesbriefing', run: function () {
-        var d = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
-        speak('Heute ist ' + d + '. ' + timeText() + ' ' + taskText());
-      } },
+    { label: 'Tagesbriefing', run: function () { ask('Tagesbriefing', true); } },
     { label: 'Timer 10 Min', run: function () {
         clearTimeout(timer);
         timer = setTimeout(function () { speak('Der Timer ist abgelaufen.'); }, 10 * 60 * 1000);

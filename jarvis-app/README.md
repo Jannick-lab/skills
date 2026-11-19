@@ -85,6 +85,9 @@ Nach jeder Änderung den Server neu starten.
   monatlich am Datum, jährlich, mit Ausnahmen). Komplexe Regeln wie „jeden zweiten Freitag im Monat“ zeigt er nur einmal.
   Die Adresse bekommst du bei Google unter Kalender-Einstellungen, „Geheime Adresse im iCal-Format“. Sie gibt Zugriff auf deine
   Termine, setze sie nur als Umgebungsvariable und nie ins Repository.
+- **Tagesbriefing:** Der Knopf **Tagesbriefing** unten holt Wetter, heutige Termine, offene Aufgaben, zwei bis drei Schlagzeilen und
+  (falls eingerichtet) die ungelesenen Mails und lässt Jarvis daraus einen kurzen Text sprechen. Quellen, die nicht eingerichtet sind,
+  übergeht er, ausgefallene erwähnt er kurz. Ein Briefing ist ein Anthropic-Aufruf und, je nach Stimme, ein ElevenLabs-Aufruf.
 - **Termine vorschlagen:** Sag „Trag morgen um 15 Uhr Zahnarzt ein“. Jarvis zeigt eine Karte mit dem Vorschlag. Mit **In Kalender übernehmen**
   öffnest du eine Kalenderdatei (.ics), und dein Gerät fragt, in welchen Kalender der Termin soll. Erst dein Tipp trägt ihn ein.
   Jarvis hat keinen Schreibzugriff auf deinen Kalender und braucht dafür keine Zugangsdaten. Gelöscht oder geändert wird nichts.
